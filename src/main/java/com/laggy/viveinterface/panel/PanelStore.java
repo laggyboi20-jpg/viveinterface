@@ -55,8 +55,22 @@ public final class PanelStore {
             Dto[] in = GSON.fromJson(Files.readString(f), Dto[].class);
             if (in == null) return;
             PanelManager.clear();
-            for (Dto d : in) PanelManager.add(fromDto(d));
-            DebugLog.logf("STORE", "loaded %d saved panel(s)", in.length);
+            int migrated = 0;
+            for (Dto d : in) {
+                Panel p = fromDto(d);
+                // Pieces saved by older builds could be glued to a hand/head. In-VR grab/release is
+                // dormant, so such a panel would ride a controller forever with no way to put it down
+                // ("the cut piece keeps moving through the world"). Pin them where they are instead.
+                if (p.anchor != PanelAnchor.WORLD) {
+                    p.anchor = PanelAnchor.WORLD;
+                    p.place = new Placement();
+                    p.userOffset.set(0, 0, 0);
+                    migrated++;
+                }
+                PanelManager.add(p);
+            }
+            DebugLog.logf("STORE", "loaded %d saved panel(s)%s", in.length,
+                    migrated > 0 ? (" (" + migrated + " body-anchored → pinned to world)") : "");
         } catch (Exception e) {
             DebugLog.error("STORE", "failed to load panels", e);
         }

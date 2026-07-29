@@ -3,6 +3,7 @@ package com.laggy.viveinterface.gui;
 import com.laggy.viveinterface.cut.CutTool;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
+import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.render.GuiSnapshot;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -17,6 +18,7 @@ import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,6 +41,13 @@ public class CutScreen extends Screen {
     private double selX0, selY0, selX1, selY1;
 
     private Component status = Component.literal("§7Drag a box over the HUD, then press Cut.");
+
+    /** Hit rects for the thumbnails in the right strip: {x, y, w, h, panelIndex}. Rebuilt each frame. */
+    private final List<int[]> thumbRects = new ArrayList<>();
+    /** Index of the piece whose little options popup is open, or -1. */
+    private int menuFor = -1;
+    private int menuX, menuY;
+    private static final int MENU_W = 84, MENU_H = 42;
 
     public CutScreen() {
         super(Component.literal("ViveInterface — Cut"));
@@ -98,12 +107,14 @@ public class CutScreen extends Screen {
         g.drawCenteredString(this.font, status, imgX + imgW / 2, this.height - 40, 0xCCCCCC);
         drawPieceStrip(g);
         super.render(g, mouseX, mouseY, partialTick);
+        drawPieceMenu(g);   // on top of everything
     }
 
     /** The right-hand column: a thumbnail of every placed piece (its cut-out region of the HUD). */
     private void drawPieceStrip(GuiGraphics g) {
         int sx = this.width - STRIP_W + 4;
         int sw = STRIP_W - 10;
+        thumbRects.clear();
         g.drawString(this.font, Component.literal("§fCut pieces"), sx, 8, 0xFFFFFF, false);
         List<Panel> all = PanelManager.all();
         if (all.isEmpty()) {
@@ -125,14 +136,64 @@ public class CutScreen extends Screen {
                 drawHudSub(g, tex, sx, y, tw, th,
                         Math.min(p.u0, p.u1), Math.min(p.v0, p.v1), Math.max(p.u0, p.u1), Math.max(p.v0, p.v1));
             }
-            g.renderOutline(sx - 1, y - 1, tw + 2, th + 2, 0xFF404050);
+            boolean sel = (menuFor == i);
+            g.renderOutline(sx - 1, y - 1, tw + 2, th + 2, sel ? 0xFF33FF66 : 0xFF404050);
             g.drawString(this.font, Component.literal("§7#" + (i + 1)), sx, y + th + 1, 0xAAAAAA, false);
+            thumbRects.add(new int[]{sx, y, tw, th, i});
             y += th + 12;
         }
+        g.drawString(this.font, Component.literal("§8click a piece"), sx, Math.min(y, this.height - 12),
+                0x777777, false);
+    }
+
+    /** The tiny per-piece options popup (currently just Delete). */
+    private void drawPieceMenu(GuiGraphics g) {
+        if (menuFor < 0) return;
+        int x = menuX, y = menuY;
+        g.fill(x, y, x + MENU_W, y + MENU_H, 0xF0101018);
+        g.renderOutline(x, y, MENU_W, MENU_H, 0xFF55FF88);
+        g.drawString(this.font, Component.literal("§fPiece #" + (menuFor + 1)), x + 5, y + 4, 0xFFFFFF, false);
+        int[] del = deleteRect();
+        g.fill(del[0], del[1], del[0] + del[2], del[1] + del[3], 0xFF802020);
+        g.renderOutline(del[0], del[1], del[2], del[3], 0xFFFF6666);
+        g.drawCenteredString(this.font, Component.literal("§fDelete"),
+                del[0] + del[2] / 2, del[1] + 4, 0xFFFFFF);
+    }
+
+    private int[] deleteRect() {
+        return new int[]{menuX + 5, menuY + 18, MENU_W - 10, 16};
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        // The per-piece popup takes priority while it's open.
+        if (menuFor >= 0) {
+            int[] d = deleteRect();
+            if (in(mx, my, d[0], d[1], d[2], d[3])) {
+                List<Panel> all = PanelManager.all();
+                if (menuFor < all.size()) {
+                    PanelManager.remove(all.get(menuFor));
+                    PanelStore.save();
+                    status = Component.literal("§aPiece deleted.");
+                }
+                menuFor = -1;
+                return true;
+            }
+            if (!in(mx, my, menuX, menuY, MENU_W, MENU_H)) {
+                menuFor = -1;    // clicked away → dismiss
+                return true;
+            }
+            return true;
+        }
+        // Clicking a thumbnail in the right strip opens its options popup.
+        for (int[] r : thumbRects) {
+            if (in(mx, my, r[0], r[1], r[2], r[3])) {
+                menuFor = r[4];
+                menuX = Math.max(2, r[0] - MENU_W - 6);
+                menuY = Math.min(r[1], this.height - MENU_H - 2);
+                return true;
+            }
+        }
         if (button == 0 && inImage(mx, my)) {
             dragging = true;
             hasSelection = true;
@@ -201,6 +262,9 @@ public class CutScreen extends Screen {
 
     private boolean inImage(double mx, double my) {
         return mx >= imgX && mx <= imgX + imgW && my >= imgY && my <= imgY + imgH;
+    }
+    private static boolean in(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
     private double clampX(double v) { return Math.max(imgX, Math.min(imgX + imgW, v)); }
     private double clampY(double v) { return Math.max(imgY, Math.min(imgY + imgH, v)); }

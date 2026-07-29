@@ -26,6 +26,10 @@ public final class HudMask {
 
     private static void onHud(GuiGraphics g, DeltaTracker tickDelta) {
         if (!VrPoses.vrActive() || !GuiTexture.available()) return;
+        // While a screen is open (including our own cut screen) the GUI framebuffer holds that screen,
+        // not the plain HUD. Capturing then would snapshot the cut screen itself, and masking would
+        // punch holes in it — so leave the last clean HUD still alone until the screen closes.
+        if (Minecraft.getInstance().screen != null) return;
         try {
             // 1) Full copy for the world panels (must happen before we punch holes below).
             GuiSnapshot.capture();

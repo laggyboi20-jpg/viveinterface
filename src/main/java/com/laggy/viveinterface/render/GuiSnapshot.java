@@ -5,6 +5,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL30;
 import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
 
 /**
@@ -36,13 +37,24 @@ public final class GuiSnapshot {
         if (fb == null) return;
         int fw = fb.width, fh = fb.height;
         if (fw <= 0 || fh <= 0) return;
+        int prevRead = 0;
         try {
             ensure(fw, fh);
+            // glCopyTexSubImage2D reads from whatever is bound to GL_READ_FRAMEBUFFER. Do NOT assume
+            // that's the HUD buffer — with Iris/Sodium in the mix it usually isn't, which silently
+            // copies the wrong buffer (the "HUD doesn't show on the cut screen" bug). Bind Vivecraft's
+            // GUI framebuffer explicitly, copy, then restore whatever was bound before.
+            prevRead = GlStateManager._getInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, fb.frameBufferId);
             GlStateManager._bindTexture(texId);
-            // Reads from GL_READ_FRAMEBUFFER, which is GUI_FRAMEBUFFER while the HUD is drawn.
             GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fw, fh);
-            DebugLog.once("snapshot", "SNAP", "first HUD capture " + fw + "x" + fh + " texId=" + texId);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
+            DebugLog.once("snapshot", "SNAP", "first HUD capture " + fw + "x" + fh + " texId=" + texId
+                    + " from guiFbo=" + fb.frameBufferId + " (prevRead=" + prevRead + ")");
         } catch (Throwable t) {
+            try {
+                GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
+            } catch (Throwable ignored) { }
             DebugLog.error("SNAP", "capture failed (fb=" + fw + "x" + fh + ")", t);
         }
     }
