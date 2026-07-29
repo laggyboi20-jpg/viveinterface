@@ -31,9 +31,16 @@ public final class GuiSnapshot {
     public static int width() { return w; }
     public static int height() { return h; }
 
-    /** Copy the currently-bound HUD framebuffer's colour into our texture. */
+    /** Copy Vivecraft's HUD framebuffer into our texture (VR path). */
     public static void capture() {
-        RenderTarget fb = GuiHandler.GUI_FRAMEBUFFER;
+        capture(GuiHandler.GUI_FRAMEBUFFER);
+    }
+
+    /**
+     * Copy a framebuffer's colour into our texture. In VR that's Vivecraft's HUD buffer; on desktop
+     * (no VR) the caller passes the main render target so the mod is still testable with a mouse.
+     */
+    public static void capture(RenderTarget fb) {
         if (fb == null) return;
         int fw = fb.width, fh = fb.height;
         if (fw <= 0 || fh <= 0) return;
@@ -50,7 +57,7 @@ public final class GuiSnapshot {
             GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fw, fh);
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
             DebugLog.once("snapshot", "SNAP", "first HUD capture " + fw + "x" + fh + " texId=" + texId
-                    + " from guiFbo=" + fb.frameBufferId + " (prevRead=" + prevRead + ")");
+                    + " from fbo=" + fb.frameBufferId + " (prevRead=" + prevRead + ")");
         } catch (Throwable t) {
             try {
                 GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);

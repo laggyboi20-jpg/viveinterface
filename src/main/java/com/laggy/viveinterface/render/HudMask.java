@@ -25,11 +25,24 @@ public final class HudMask {
     }
 
     private static void onHud(GuiGraphics g, DeltaTracker tickDelta) {
-        if (!VrPoses.vrActive() || !GuiTexture.available()) return;
-        // While a screen is open (including our own cut screen) the GUI framebuffer holds that screen,
-        // not the plain HUD. Capturing then would snapshot the cut screen itself, and masking would
-        // punch holes in it — so leave the last clean HUD still alone until the screen closes.
+        // While a screen is open (including our own cut screen) the framebuffer holds that screen, not
+        // the plain HUD. Capturing then would snapshot the cut screen itself, and masking would punch
+        // holes in it — so leave the last clean HUD still alone until the screen closes.
         if (Minecraft.getInstance().screen != null) return;
+
+        boolean vr = VrPoses.vrActive();
+        // Desktop (no VR): snapshot the main render target instead so the cut screen still shows
+        // something and the mod can be tested with a mouse. That buffer also contains the world behind
+        // the HUD, and there's no separate flat panel to keep in sync, so we skip the hole-punching.
+        if (!vr) {
+            try {
+                GuiSnapshot.capture(Minecraft.getInstance().getMainRenderTarget());
+            } catch (Throwable t) {
+                DebugLog.error("MASK", "desktop snapshot failed", t);
+            }
+            return;
+        }
+        if (!GuiTexture.available()) return;
         try {
             // 1) Full copy for the world panels (must happen before we punch holes below).
             GuiSnapshot.capture();

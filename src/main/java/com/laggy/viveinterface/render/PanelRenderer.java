@@ -3,7 +3,6 @@ package com.laggy.viveinterface.render;
 import com.laggy.viveinterface.cut.CutTool;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
-import com.laggy.viveinterface.vr.VrPoses;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -33,7 +32,8 @@ public final class PanelRenderer {
     private static void onRender(WorldRenderContext ctx) {
         // Panels sample the snapshot (full HUD), not the live framebuffer (which gets holes punched
         // into it by HudMask so cut regions vanish from Vivecraft's flat panel).
-        if (!VrPoses.vrActive() || !GuiSnapshot.ready()) return;
+        // No vrActive() check: placed panels also draw on desktop so the mod can be tested there.
+        if (!GuiSnapshot.ready()) return;
         int texId = GuiSnapshot.texId();
         if (texId == 0) return;
 
