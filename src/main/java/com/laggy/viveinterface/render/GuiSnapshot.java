@@ -27,6 +27,8 @@ public final class GuiSnapshot {
 
     public static boolean ready() { return texId != 0; }
     public static int texId() { return texId; }
+    public static int width() { return w; }
+    public static int height() { return h; }
 
     /** Copy the currently-bound HUD framebuffer's colour into our texture. */
     public static void capture() {

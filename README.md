@@ -22,31 +22,28 @@ minimap cut onto your wrist stays **live** for free. No per-mod adapters, no mix
 
 ## The cutting flow (VR)
 
+Cutting is a flat **screen** — Vivecraft renders any open Minecraft screen as the pointer panel, which
+gives reliable visibility, native movement-lock + input capture, and a close button so you never get
+stuck. (This replaced an earlier world-space "swing a sword through a floating HUD" flow that was hard
+to see and easy to get stuck in.)
+
 | Step | Action |
 |------|--------|
-| 1 | Press **N** → a "menu" (HUD on a solid dark backing) spawns in front of you; a wooden sword appears on your dominant hand. |
-| 2 | Hold the **right trigger** and swipe the sword through the menu. The **whole blade** cuts wherever it crosses. |
-| 3 | When one stroke reaches **two edges** of the menu, that region detaches and floats where you cut it. The menu stays. |
-| 4 | Bring your **left hand** to the floating piece to **grab** it → the menu disappears; the piece rides your off hand. |
-| 5 | **Left trigger** → let go; the piece stays where your hand is. A fresh menu re-arms for the next cut. |
-| — | Press **N** again anytime → leave cut mode. |
+| 1 | Press **N** → the cut screen opens (a still of your live HUD, shown as the flat pointer panel). |
+| 2 | **Drag a box** over the HUD with the pointer (VR laser / mouse) — a green rectangle previews it. |
+| 3 | Press **Cut** → that region lifts out as a floating panel placed in the world in front of you. Drag another box to cut more. |
+| 4 | Press **Done**, the corner **X**, or **Esc** to leave the cut screen. |
 
-As the blade drags across the menu it leaves a **green line where it's in bounds** and a **red line
-where it strays off the edge**, so you can see the cut path as you make it.
+Placed pieces keep re-sampling the live HUD, so a minimap you cut stays **live**. Resize or delete
+them from **Mod Menu → ViveInterface → Placed pieces**.
 
-**Fully modal input:** while cut mode is active, every vanilla binding is neutralised
-(`KeyMappingMixin` → `CutInputGate`) — no block-breaking, item use, inventory, hotbar, or movement.
-Only Vivecraft's own bindings (VR menu / turning) and ViveInterface's keys stay live. The cut/release
-triggers are read **raw** from the ATTACK/USE key state via `KeyMappingAccessor`, so suppressing them
-for the game doesn't stop us reading them (`VrTriggers`).
+**N** is the mod's only keybind (rebindable under **Controls → ViveInterface**). Everything else
+(cutting is the screen; all tuning is in **Mod Menu → ViveInterface**, a Cloth Config screen).
 
-> **Trigger mapping assumption:** right/dominant trigger = vanilla ATTACK (cut), left/off trigger =
-> vanilla USE (release). If your Vivecraft bindings differ, flip the two keys in `vr/VrTriggers.java`.
-
-**N** is the mod's only keybind (rebindable under **Controls → ViveInterface**) — it stays a key
-because cut mode is fully modal in VR, so you can't open a 2D menu to get back out. Everything else
-(toggles, cutting geometry, per-element transforms, placed-piece resize/delete) lives in
-**Mod Menu → ViveInterface**, a Cloth Config screen. In VR, release is a trigger, not a key.
+> **Coming next (per the plan):** richer in-VR interaction while the cut screen is open — Vivecraft
+> tracks your hands over an open screen, so hand-drawn selection and in-VR grab/reposition of placed
+> pieces are the next iteration. For now, placed pieces sit where they're cut and are tuned from the
+> menu.
 
 ### Selecting & repositioning pieces (hand hitboxes, no physics engine)
 
@@ -111,21 +108,22 @@ Build uses Fabric Loom (`fabric-loom-remap` 1.16.3), Fabric Loader 0.19.3, Fabri
 | `render/GuiTexture.java` | Reads `GuiHandler.GUI_FRAMEBUFFER` (color tex id + size). |
 | `panel/Panel.java` | A placed slice: UV rect + anchor + transform → resolved world transform. |
 | `panel/PanelManager.java` | Session list of placed panels. |
-| `cut/CutTool.java` | State machine (ARMED → CUTTING → CUT_READY → HOLDING): whole-blade cut, edge-completion, stick-tip grab, glue-on-release, trail. |
-| `cut/CutInputGate.java` | Policy: which vanilla bindings are suppressed during cut mode (all but Vivecraft's + ours). |
+| `gui/CutScreen.java` | The cut UI as a real MC `Screen` (Vivecraft flat panel): shows the HUD still, drag a box, **Cut** → `CutTool.placeFromUv`. |
+| `cut/CutTool.java` | `placeFromUv()` lifts a UV rect into a placed world panel. (Also holds a dormant grab/hold state machine kept for the next in-VR-interaction iteration.) |
+| `cut/CutInputGate.java` | Legacy modal-input policy (dormant now that cutting is a native screen). |
 | `mixin/KeyMappingMixin.java` | Applies that policy to `KeyMapping.isDown/consumeClick`. |
 | `mixin/KeyMappingAccessor.java` | Reads the raw `isDown` field so triggers can be read past the gate. |
-| `vr/VrTriggers.java` | Right (ATTACK) = cut, left (USE) = release. |
+| `vr/VrTriggers.java` | Reads the raw ATTACK/USE trigger state (used by the dormant grab/hold flow). |
 | `panel/Placement.java` | Hand/head offset + yaw/pitch/roll + scale (ammo-HUD-style follow); tuned defaults. |
 | `panel/PanelHitbox.java` | Hand-sphere vs panel-box test — used only while grabbing, not a physics loop. |
 | `panel/PanelStore.java` | Save/load panels to `config/viveinterface/panels.json` (survives relog). |
 | `config/ViveConfig.java` | Global settings (`settings.json`): debug, trigger swap, real models, cutting geometry. |
 | `gui/ViveInterfaceModMenu.java` | Mod Menu entry → the whole **Cloth Config** settings screen (general toggles, cutting geometry, per-element transform pages, placed-piece resize/delete). |
 | `debug/DebugLog.java` | Toggle-gated logging (`logf`/`throttled`/`once`) + `dumpState()`. |
-| `render/PanelRenderer.java` | Draws panels (from the snapshot), the paper + backing, the green/red trail, and the blade. |
+| `render/PanelRenderer.java` | Draws each placed panel in the world (textured quad sampling the HUD snapshot) + the grab tint. |
 | `render/GuiSnapshot.java` | Per-frame copy of the HUD framebuffer so panels keep full content while the flat panel gets holed. |
 | `render/HudMask.java` | Snapshots the HUD, then punches transparent holes for each placed panel (no double render). |
-| `ViveInterfaceClient.java` | Keybinds + tick + render registration (idle if Vivecraft absent). |
+| `ViveInterfaceClient.java` | Registers the one keybind (**N** → `CutScreen`) + render/HUD hooks (idle if Vivecraft absent). |
 
 ## Known rough edges / TODO
 
@@ -139,16 +137,14 @@ Build uses Fabric Loom (`fabric-loom-remap` 1.16.3), Fabric Loader 0.19.3, Fabri
   `GUI_FRAMEBUFFER` is the bound read target (so the snapshot copies the right buffer), and (b)
   Vivecraft's flat panel honours the alpha channel (so alpha-0 reads as a hole, not black). If (b) is
   false, switch the punch to draw the world-background colour instead of clearing alpha.
-- **Real item models** (wooden sword / stick) render at the hands, toggleable in settings. Their
-  starting orientation is a guess, but now **fully tunable in-menu** — the sword/stick each have an
-  XYZ + yaw/pitch/roll + scale editor, so a wrong-facing model is fixed from the settings screen (no
-  code change), or turn "Real item models" off for the coloured-quad fallback.
-- **Everything the mod renders is menu-configurable** via `config/viveinterface/settings.json` and the
-  settings screen: trigger swap, real models, cutting geometry (blade/stick length, grab/glue radii,
-  menu size), and per-element transforms (sword, stick, and the default hand/head/held panel
-  placements) each with XYZ + rotation + scale.
+- **In-VR reposition of placed pieces is deferred** to the next iteration (Vivecraft tracks the hands
+  over an open screen — the plan is to move the whole cut/grab experience in there). For now a cut
+  piece is placed a fixed distance in front of you and is resized/deleted from the menu; the old
+  off-hand grab/glue state machine still exists in `CutTool` but is dormant.
+- **Placed-piece config** is menu-configurable via the Cloth Config screen: placed-piece distance &
+  base width, grab/glue radii, and the default hand/head/held panel transforms (XYZ + rotation +
+  scale). Stored in `config/viveinterface/settings.json`; pieces in `panels.json`.
 - **V-flip / pose-space assumptions** may need a tweak on first in-headset run (framebuffer origin,
-  world vs. render pose). All isolated in `PanelRenderer` / `VrPoses`.
-- **Trigger→hand mapping** (ATTACK=cut, USE=release) is assumed; release also accepts *either*
-  trigger as a safety net. Flip in `VrTriggers` if needed.
-- Untested in-headset — compiles and builds clean; needs a real Vivecraft session to validate.
+  world vs. render pose). Isolated in `PanelRenderer` / `CutTool.placeFromUv` / `VrPoses`.
+- Compiles & builds clean and loads in-headset (VR connects, HUD snapshot captured); the
+  screen-based cut flow still needs an in-headset pass to confirm feel and piece placement.

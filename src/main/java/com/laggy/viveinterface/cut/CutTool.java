@@ -9,7 +9,9 @@ import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.vr.VrPoses;
 import com.laggy.viveinterface.vr.VrTriggers;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
@@ -90,6 +92,51 @@ public final class CutTool {
         held.anchorToBody(next);
         DebugLog.logf("HAND", "piece moved to %s", next);
         VrPoses.haptic(next == PanelAnchor.MAIN_HAND, 0.6f);
+    }
+
+    /**
+     * Lift a rectangular UV region of the HUD out into a floating world panel, positioned in front of
+     * the viewer. Called by {@link com.laggy.viveinterface.gui.CutScreen} when you drag a box on the
+     * flat cut screen and press "Cut". UVs are top-left origin in [0,1]. Returns false if the box is
+     * too small.
+     */
+    public static boolean placeFromUv(float u0, float v0, float u1, float v1) {
+        float minU = Math.max(0f, Math.min(u0, u1)), maxU = Math.min(1f, Math.max(u0, u1));
+        float minV = Math.max(0f, Math.min(v0, v1)), maxV = Math.min(1f, Math.max(v0, v1));
+        if ((maxU - minU) < MIN_CUT_UV || (maxV - minV) < MIN_CUT_UV) return false;
+
+        ViveConfig cfg = ViveConfig.get();
+        Panel slice = new Panel(minU, minV, maxU, maxV, PanelAnchor.WORLD);
+        slice.widthMeters = Math.max(0.05f, cfg.paperWidth * (maxU - minU));
+
+        // Place it a fixed distance in front of the head (VR) or camera (desktop), facing the viewer.
+        VrPoses.BodyPose head = VrPoses.head();
+        if (head != null) {
+            Vec3 p = head.pos(), d = head.dir();
+            slice.worldPos.set(
+                    (float) (p.x + d.x * cfg.paperDistance),
+                    (float) (p.y + d.y * cfg.paperDistance),
+                    (float) (p.z + d.z * cfg.paperDistance));
+            slice.worldRot.set(head.rot());
+        } else {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) return false;
+            Vec3 eye = mc.player.getEyePosition(1f);
+            Vec3 look = mc.player.getViewVector(1f);
+            slice.worldPos.set(
+                    (float) (eye.x + look.x * cfg.paperDistance),
+                    (float) (eye.y + look.y * cfg.paperDistance),
+                    (float) (eye.z + look.z * cfg.paperDistance));
+            slice.worldRot.set(new Quaternionf().rotationTo(
+                    0f, 0f, 1f, (float) look.x, (float) look.y, (float) look.z));
+        }
+
+        PanelManager.add(slice);
+        PanelStore.save();
+        DebugLog.logf("CUT", "screen cut uv=(%.2f,%.2f)-(%.2f,%.2f) w=%.2f panels=%d",
+                minU, minV, maxU, maxV, slice.widthMeters, PanelManager.all().size());
+        VrPoses.haptic(true, 0.6f);
+        return true;
     }
 
     // --- per-frame update ----------------------------------------------------

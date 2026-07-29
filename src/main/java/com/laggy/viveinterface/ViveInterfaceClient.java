@@ -3,6 +3,7 @@ package com.laggy.viveinterface;
 import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
 import com.laggy.viveinterface.debug.DebugLog;
+import com.laggy.viveinterface.gui.CutScreen;
 import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.render.HudMask;
 import com.laggy.viveinterface.render.PanelRenderer;
@@ -12,6 +13,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 public class ViveInterfaceClient implements ClientModInitializer {
@@ -43,11 +45,13 @@ public class ViveInterfaceClient implements ClientModInitializer {
         PanelStore.load();   // bring back panels cut in previous sessions
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (keyToggleCut.consumeClick()) CutTool.get().toggle();
+            // N opens the flat cut screen (Vivecraft shows it as the pointer panel). Escape / Done / X
+            // closes it — no more getting stuck in a modal world-space mode.
+            while (keyToggleCut.consumeClick()) Minecraft.getInstance().setScreen(new CutScreen());
             CutTool.get().tick();
         });
 
-        DebugLog.log("INIT", "ready — N=cut mode; right trigger=cut, off hand grabs, "
-                + "either trigger releases. All settings: Mod Menu → ViveInterface.");
+        DebugLog.log("INIT", "ready — N opens the cut screen (drag a box on the HUD to cut). "
+                + "All settings: Mod Menu → ViveInterface.");
     }
 }

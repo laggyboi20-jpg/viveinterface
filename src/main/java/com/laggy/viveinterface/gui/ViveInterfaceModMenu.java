@@ -67,21 +67,16 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         ConfigCategory general = builder.getOrCreateCategory(Component.literal("General"));
 
         general.addEntry(eb.startTextDescription(Component.literal(
-                "§7Press §fN§7 in-game to toggle cut mode (menu + sword). In cut mode, use the "
-                        + "§fright trigger§7 to cut and reach your §foff hand§7 into a piece to grab it; "
-                        + "§feither trigger§7 releases. Everything else is tuned right here."))
+                "§7Press §fN§7 in-game to open the cut screen (Vivecraft shows it as the flat pointer "
+                        + "panel). §fDrag a box§7 over the HUD with the pointer and press §fCut§7 to lift "
+                        + "that region out as a floating panel. §fX / Done / Esc§7 closes it. Sizes and "
+                        + "placements are tuned right here."))
                 .build());
-
-        general.addEntry(eb.startBooleanToggle(Component.literal("Real item models (sword / stick)"), c.realModels)
-                .setDefaultValue(true)
-                .setTooltip(Component.literal("ON = draw the wooden sword & selection stick as real item models "
-                        + "(tune their position on the transform pages). OFF = simple coloured quads."))
-                .setSaveConsumer(v -> c.realModels = v).build());
 
         general.addEntry(eb.startBooleanToggle(Component.literal("Swap cut / release triggers"), c.swapTriggers)
                 .setDefaultValue(false)
-                .setTooltip(Component.literal("Flip this if your Vivecraft binds the cut trigger to the off hand. "
-                        + "Default: dominant trigger = ATTACK = cut, off trigger = USE = release."))
+                .setTooltip(Component.literal("Flip this if your Vivecraft binds the release trigger to the "
+                        + "other hand (used when carrying a placed piece)."))
                 .setSaveConsumer(v -> c.swapTriggers = v).build());
 
         general.addEntry(eb.startBooleanToggle(Component.literal("Debug logging"), c.debugLogging)
@@ -93,30 +88,22 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         // ============================ CUTTING GEOMETRY ============================
         ConfigCategory geo = builder.getOrCreateCategory(Component.literal("Cutting geometry"));
 
+        geo.addEntry(floatField(eb, "Placed-piece distance (m)", c.paperDistance, 0.1f, 3.0f,
+                "How far in front of you a freshly-cut piece is placed.",
+                v -> c.paperDistance = v));
+        geo.addEntry(floatField(eb, "Placed-piece base width (m)", c.paperWidth, 0.1f, 3.0f,
+                "Base physical width a full-HUD cut would be; a smaller selection scales down from this. "
+                        + "Height follows the selection's aspect ratio.",
+                v -> c.paperWidth = v));
         geo.addEntry(floatField(eb, "Grab radius (m)", c.grabRadius, 0.01f, 0.5f,
-                "Size of the off-hand grab sphere. Bigger = easier to grab a floating piece.",
+                "Size of the off-hand grab sphere (used when repositioning a placed piece).",
                 v -> c.grabRadius = v));
         geo.addEntry(floatField(eb, "Glue radius (m)", c.glueRadius, 0.01f, 1.0f,
-                "How close to a hand/head you must release a piece for it to glue there (else it drops in the world).",
+                "How close to a hand/head you must release a piece for it to glue there.",
                 v -> c.glueRadius = v));
-        geo.addEntry(floatField(eb, "Blade length (m)", c.bladeLength, 0.05f, 1.5f,
-                "Length of the cutting sword blade.",
-                v -> c.bladeLength = v));
-        geo.addEntry(floatField(eb, "Selection stick length (m)", c.selectStickLength, 0.02f, 1.0f,
-                "Length of the off-hand pointer stick used to grab pieces.",
-                v -> c.selectStickLength = v));
-        geo.addEntry(floatField(eb, "Menu distance (m)", c.paperDistance, 0.1f, 2.0f,
-                "How far in front of you the cut menu (the HUD on a dark backing) spawns.",
-                v -> c.paperDistance = v));
-        geo.addEntry(floatField(eb, "Menu width (m)", c.paperWidth, 0.1f, 2.0f,
-                "Physical width of the cut menu; height follows the HUD aspect ratio.",
-                v -> c.paperWidth = v));
 
         // ============================ TRANSFORM PAGES ============================
-        // The "sword spawns at my body not my hand" fix lives here: nudge X/Y/Z + yaw/pitch/roll
-        // until the model sits right on the controller.
-        addPlacementCategory(builder, eb, "Sword transform", c.swordPlace);
-        addPlacementCategory(builder, eb, "Stick transform", c.stickPlace);
+        // Where a piece sits once it's glued to a hand/head or carried (X/Y/Z + yaw/pitch/roll + scale).
         addPlacementCategory(builder, eb, "Hand panel default", c.handPanelPlace);
         addPlacementCategory(builder, eb, "Head panel default", c.headPanelPlace);
         addPlacementCategory(builder, eb, "Held piece default", c.heldPanelPlace);

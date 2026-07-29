@@ -335,6 +335,38 @@ other control into a Mod Menu settings screen**, built with **Cloth Config** to 
   `modCompileOnly`, excluding its transitive `fabric-loader` (0.16.9, not in the offline cache — we
   provide 0.19.3). Added `cloth-config` to `fabric.mod.json` suggests. `ViveInterfaceModMenu` no-ops
   if Cloth isn't installed, so the mod still loads standalone.
-- **Regression to note**: change-hand has no trigger yet (see §4 note). The "sword at body" issue is
-  now tunable on the **Sword transform** page rather than being a fixed guess — still needs an
-  in-headset dial-in.
+- **Regression to note**: change-hand has no trigger yet (see §4 note).
+
+---
+
+## 11. Cut mode → a real Screen (second headset iteration)
+
+Feedback after the Cloth change: the world-space cut menu "didn't open a visible menu." Root issue is
+architectural — the old menu was a **world-space quad** spawned at `head.pos + head.look × distance`
+(`CutTool.enterArmed`), so any mismatch in Vivecraft's head pose put it off-view, and the sword-swing
+cutting + modal `KeyMapping` suppression were fragile. Decided (with the user) to **make cut mode a real
+Minecraft `Screen`** — Vivecraft renders any open screen as the flat pointer panel, giving reliable
+visibility, native movement-lock + input capture, and a close button.
+
+- **`gui/CutScreen`** (new) — extends `Screen`, `isPauseScreen()=false`. Draws the live HUD **still**
+  (`GuiSnapshot` texture, drawn by hand with a POSITION_TEX quad since `GuiGraphics.blit` needs a
+  `ResourceLocation`, V-flipped). Drag a box with the pointer (VR laser / mouse via
+  `mouseClicked/Dragged/Released`); **Cut** maps the selection to HUD UVs and calls
+  `CutTool.placeFromUv`; **Done / corner X / Esc** closes.
+- **`CutTool.placeFromUv(u0,v0,u1,v1)`** (new, static) — lifts the UV rect into a `WORLD` `Panel`
+  placed `paperDistance` in front of the head (VR) or camera (desktop fallback), width from
+  `paperWidth × Δu`. Adds to `PanelManager` + `PanelStore.save()`.
+- **`ViveInterfaceClient`** — `N` now `setScreen(new CutScreen())` instead of `CutTool.toggle()`.
+- **`PanelRenderer`** — gutted down to just placed-panel rendering + grab tint. Removed the world-space
+  sword / paper / trail / selection-stick / hand-hitbox visuals and the `ItemRenderer` item-model path.
+- **Menu** — dropped the now-dead controls (real-models toggle, blade/stick length, Sword & Stick
+  transform pages); renamed menu-distance/width to placed-piece distance/base-width.
+
+**Deferred (agreed with user):** the in-VR hand grab/reposition + hand-drawn selection ("Vivecraft
+tracks hands in the inventory menu"). `CutTool`'s ARMED/CUTTING/HOLDING machine, `CutInputGate`, the
+`KeyMapping` mixins, `VrTriggers`, and the sword/stick/hand/head `Placement`s in `ViveConfig` are left
+in place but **dormant** (not invoked) for that next pass. A placed piece currently sits where it was
+cut and is only resized/deleted from the menu.
+
+**Builds clean** against `vivecraft-1.21.4-1.3.15` (Gradle 9.5 offline, JDK 21). Screen-based flow not
+yet confirmed in-headset.
