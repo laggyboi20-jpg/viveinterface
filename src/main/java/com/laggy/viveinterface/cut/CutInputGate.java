@@ -15,12 +15,19 @@ public final class CutInputGate {
 
     private CutInputGate() {}
 
-    /** True if the named vanilla binding should be treated as "not pressed" right now. */
+    /** True if the named binding should be treated as "not pressed" right now. */
     public static boolean suppress(String keyName) {
         if (keyName == null) return false;
+        if (keyName.startsWith("key.viveinterface.")) return false;   // always leave our own keys
+
+        // Placement mode is fully modal: suppress EVERYTHING else, Vivecraft's own bindings included,
+        // because that's what the trigger teleport / walk-forward runs through. Trigger state is still
+        // read raw (KeyMappingAccessor), so grabbing keeps working while the game sees nothing.
+        if (PlacementMode.active()) return true;
+
+        // Otherwise only while actually carrying a piece, so a grab doesn't also mine or place.
         if (!CutTool.get().active()) return false;
-        if (keyName.startsWith("key.viveinterface.")) return false;   // our own keys
         if (keyName.toLowerCase().contains("vivecraft")) return false; // leave Vivecraft's bindings
-        return true;                                                   // everything else: obsolete
+        return true;
     }
 }

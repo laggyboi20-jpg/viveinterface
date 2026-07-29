@@ -8,10 +8,8 @@ import com.laggy.viveinterface.panel.PanelHitbox;
 import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.vr.VrPoses;
-import com.laggy.viveinterface.gui.PlacementScreen;
 import com.laggy.viveinterface.vr.VrTriggers;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.phys.Vec3;
 import java.util.List;
 import org.joml.Quaternionf;
@@ -51,9 +49,9 @@ public final class CutTool {
     public boolean active() { return held != null; }
     public Panel heldPanel() { return held; }
 
-    /** True while the placement screen is up: movement is locked and body-sticking is enabled. */
+    /** True while placement mode is on: movement is locked and body-sticking is enabled. */
     public static boolean placementMode() {
-        return Minecraft.getInstance().screen instanceof PlacementScreen;
+        return PlacementMode.active();
     }
 
     /**
@@ -138,11 +136,9 @@ public final class CutTool {
 
     public void tick() {
         if (!VrPoses.vrActive()) return;
-        // Grabbing is allowed with no screen open (repositioning pieces mid-game) and in placement mode
-        // (where movement is locked). Any other screen — e.g. the cut screen or the settings menu — owns
-        // the triggers for its pointer, so stay out of the way.
-        Screen screen = Minecraft.getInstance().screen;
-        if (screen != null && !(screen instanceof PlacementScreen)) {
+        // Any open screen owns the triggers for its pointer, so stay out of the way. Placement mode is
+        // deliberately screen-less precisely so grabbing keeps working there.
+        if (Minecraft.getInstance().screen != null) {
             prevMain = prevOff = false;
             return;
         }

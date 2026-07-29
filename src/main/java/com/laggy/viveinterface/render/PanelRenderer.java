@@ -2,8 +2,10 @@ package com.laggy.viveinterface.render;
 
 import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
+import com.laggy.viveinterface.cut.PlacementMode;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
+import com.laggy.viveinterface.vr.VrPoses;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -66,8 +68,48 @@ public final class PanelRenderer {
             if (p == touched) renderQuad(base, cam, p, 0.002f, 0.2f, 1f, 0.3f, 0.30f);  // grabbable → green
         }
 
+        // In placement mode, show where a piece can be stuck: the hand and head anchor volumes.
+        if (PlacementMode.active()) drawBodyMarkers(base, cam);
+
         RenderSystem.enableCull();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    }
+
+    /**
+     * Translucent boxes at each anchor target while placing — cyan for the hands, yellow for the head.
+     * Their size is the configured glue radius, so what you see is exactly what counts as "close
+     * enough" on release. Extra body parts (elbows / waist / knees) drop in here once they're anchors.
+     */
+    private static void drawBodyMarkers(Matrix4f base, Vec3 cam) {
+        float glue = ViveConfig.get().glueRadius;
+        marker(base, cam, VrPoses.mainHand(), glue, 0.3f, 0.9f, 1f);
+        marker(base, cam, VrPoses.offHand(), glue, 0.3f, 0.9f, 1f);
+        marker(base, cam, VrPoses.head(), glue, 1f, 0.9f, 0.25f);
+    }
+
+    private static void marker(Matrix4f base, Vec3 cam, VrPoses.BodyPose pose, float h,
+                               float r, float g, float b) {
+        if (pose == null) return;
+        Vec3 p = pose.pos();
+        Matrix4f m = new Matrix4f(base).translate(
+                (float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z));
+
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
+        Tesselator tess = Tesselator.getInstance();
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        float a = 0.22f;
+        float[][][] faces = {
+                {{-h,-h, h},{-h, h, h},{ h, h, h},{ h,-h, h}}, // +Z
+                {{ h,-h,-h},{ h, h,-h},{-h, h,-h},{-h,-h,-h}}, // -Z
+                {{ h,-h, h},{ h, h, h},{ h, h,-h},{ h,-h,-h}}, // +X
+                {{-h,-h,-h},{-h, h,-h},{-h, h, h},{-h,-h, h}}, // -X
+                {{-h, h, h},{-h, h,-h},{ h, h,-h},{ h, h, h}}, // +Y
+                {{-h,-h,-h},{-h,-h, h},{ h,-h, h},{ h,-h,-h}}, // -Y
+        };
+        for (float[][] face : faces) {
+            for (float[] v : face) bb.addVertex(m, v[0], v[1], v[2]).setColor(r, g, b, a);
+        }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
     /** {@code base * translate(panel - camera) * rotate(panel)} — the panel's world transform. */
