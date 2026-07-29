@@ -8,9 +8,12 @@ import com.laggy.viveinterface.panel.PanelHitbox;
 import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.vr.VrPoses;
+import com.laggy.viveinterface.gui.PlacementScreen;
 import com.laggy.viveinterface.vr.VrTriggers;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.phys.Vec3;
+import java.util.List;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -40,6 +43,7 @@ public final class CutTool {
 
     private Panel held;                 // the piece currently riding a hand
     private PanelAnchor heldHand;       // which hand holds it
+    private boolean heldByMainTrigger;  // which trigger started the grab (released on that one)
     private boolean prevMain, prevOff;  // trigger edge detection
 
     public State state() { return held != null ? State.HOLDING : State.OFF; }
@@ -47,10 +51,18 @@ public final class CutTool {
     public boolean active() { return held != null; }
     public Panel heldPanel() { return held; }
 
-    /** The placed panel a hand is currently reaching into (grabbable) — drives the green tint. */
+    /** True while the placement screen is up: movement is locked and body-sticking is enabled. */
+    public static boolean placementMode() {
+        return Minecraft.getInstance().screen instanceof PlacementScreen;
+    }
+
+    /**
+     * The placed panel a hand is reaching into — drives the green tint. Only highlighted in placement
+     * mode: outside it, a piece riding your hand shouldn't glow while you're just playing.
+     */
     public Panel touchedPanel() {
+        if (!VrPoses.vrActive() || !placementMode()) return null;
         if (held != null) return held;
-        if (!VrPoses.vrActive()) return null;
         Panel p = nearestTo(VrPoses.mainHand());
         return p != null ? p : nearestTo(VrPoses.offHand());
     }
@@ -58,7 +70,13 @@ public final class CutTool {
     private static Panel nearestTo(VrPoses.BodyPose hand) {
         if (hand == null) return null;
         Vec3 hp = hand.pos();
-        return PanelHitbox.nearestTouched(PanelManager.all(),
+        // Outside placement mode only WORLD pieces are grabbable. A piece stuck to a hand sits right at
+        // that hand, so it would otherwise be re-grabbed every time you squeezed the trigger to mine.
+        List<Panel> candidates = PanelManager.all();
+        if (!placementMode()) {
+            candidates = candidates.stream().filter(p -> p.anchor == PanelAnchor.WORLD).toList();
+        }
+        return PanelHitbox.nearestTouched(candidates,
                 new Vector3f((float) hp.x, (float) hp.y, (float) hp.z), ViveConfig.get().grabRadius);
     }
 
@@ -120,8 +138,11 @@ public final class CutTool {
 
     public void tick() {
         if (!VrPoses.vrActive()) return;
-        // Don't grab while a menu (including the cut screen) is open — the triggers drive the pointer.
-        if (Minecraft.getInstance().screen != null) {
+        // Grabbing is allowed with no screen open (repositioning pieces mid-game) and in placement mode
+        // (where movement is locked). Any other screen — e.g. the cut screen or the settings menu — owns
+        // the triggers for its pointer, so stay out of the way.
+        Screen screen = Minecraft.getInstance().screen;
+        if (screen != null && !(screen instanceof PlacementScreen)) {
             prevMain = prevOff = false;
             return;
         }
@@ -130,26 +151,47 @@ public final class CutTool {
         boolean offDown = VrTriggers.release();    // off-hand trigger
 
         if (held != null) {
-            boolean stillHeld = (heldHand == PanelAnchor.MAIN_HAND) ? mainDown : offDown;
+            boolean stillHeld = heldByMainTrigger ? mainDown : offDown;
             if (!stillHeld) doRelease();
         } else {
-            if (mainDown && !prevMain) tryGrab(PanelAnchor.MAIN_HAND, VrPoses.mainHand());
-            else if (offDown && !prevOff) tryGrab(PanelAnchor.OFF_HAND, VrPoses.offHand());
+            if (mainDown && !prevMain) tryGrab(true);
+            else if (offDown && !prevOff) tryGrab(false);
         }
 
         prevMain = mainDown;
         prevOff = offDown;
     }
 
-    /** Grab whatever piece this hand is reaching into, keeping its current position/orientation. */
-    private void tryGrab(PanelAnchor hand, VrPoses.BodyPose pose) {
+    /**
+     * Grab a piece on a trigger press. Prefers the hand that trigger belongs to, but falls back to the
+     * other hand if only that one is touching a piece — Vivecraft's trigger→binding mapping varies
+     * between setups, so either trigger can grab whichever hand is actually in range.
+     */
+    private void tryGrab(boolean mainTrigger) {
+        PanelAnchor first = mainTrigger ? PanelAnchor.MAIN_HAND : PanelAnchor.OFF_HAND;
+        PanelAnchor second = mainTrigger ? PanelAnchor.OFF_HAND : PanelAnchor.MAIN_HAND;
+
+        PanelAnchor hand = first;
+        VrPoses.BodyPose pose = poseOf(first);
         Panel target = nearestTo(pose);
-        if (target == null) return;
+        if (target == null) {
+            hand = second;
+            pose = poseOf(second);
+            target = nearestTo(pose);
+        }
+        if (target == null || pose == null) return;
+
         target.attachToBody(hand, pose);
         held = target;
         heldHand = hand;
-        DebugLog.logf("GRAB", "%s grabbed a piece (panels=%d)", hand, PanelManager.all().size());
+        heldByMainTrigger = mainTrigger;
+        DebugLog.logf("GRAB", "%s grabbed a piece (placementMode=%s panels=%d)",
+                hand, placementMode(), PanelManager.all().size());
         VrPoses.haptic(hand == PanelAnchor.MAIN_HAND, 0.8f);
+    }
+
+    private static VrPoses.BodyPose poseOf(PanelAnchor hand) {
+        return hand == PanelAnchor.MAIN_HAND ? VrPoses.mainHand() : VrPoses.offHand();
     }
 
     /** Let go: stick to a nearby body part if you released it there, else leave it in the world. */
@@ -158,8 +200,10 @@ public final class CutTool {
         held = null;
         if (p == null) return;
 
+        // Sticking to a body part only happens in placement mode. Outside it, grabbing is purely for
+        // nudging a piece around the world, so a release always leaves it in the world.
         Panel.Resolved r = p.resolve();
-        if (r != null && glueIfNearBody(p, r)) {
+        if (placementMode() && r != null && glueIfNearBody(p, r)) {
             PanelStore.save();
             return;
         }

@@ -77,7 +77,8 @@ public class CutScreen extends Screen {
                 .bounds(mid - 150, by, 150, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Clear box"), b -> { hasSelection = false; })
                 .bounds(mid + 4, by, 70, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose())
+        // Done moves on to placement mode (movement locked) so you can put the pieces on your body.
+        addRenderableWidget(Button.builder(Component.literal("Done →"), b -> toPlacement())
                 .bounds(mid + 78, by, 72, 20).build());
         // Close (X) in the very top-right corner so you can always bail out of cut mode.
         addRenderableWidget(Button.builder(Component.literal("§cX"), b -> onClose())
@@ -226,6 +227,11 @@ public class CutScreen extends Screen {
             return true;
         }
         return super.mouseReleased(mx, my, button);
+    }
+
+    /** Hand off to {@link PlacementScreen} so pieces can be placed on the body with movement locked. */
+    private void toPlacement() {
+        if (this.minecraft != null) this.minecraft.setScreen(new PlacementScreen());
     }
 
     /** Turn the current selection rectangle into UVs on the HUD and hand it to {@link CutTool}. */
