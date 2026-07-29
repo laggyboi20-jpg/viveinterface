@@ -1,5 +1,7 @@
 plugins {
-    id 'fabric-loom' version '1.9-SNAPSHOT'
+    // -remap variant: 1.21.4 is still obfuscated, so Loom remaps Minecraft.
+    // (Same plugin the sibling ViveMonkeCraft 1.21.4 project builds with.)
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
     id 'java'
 }
 
@@ -9,20 +11,23 @@ base { archivesName = project.archives_base_name }
 
 repositories {
     mavenCentral()
-    maven { url "https://api.modrinth.com/maven" }   // Mod Menu
+    maven { url "https://maven.terraformersmc.com/releases/" }   // Mod Menu
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     // Use official Mojang mappings so Vivecraft's RenderTarget / Vec3 / PoseStack
-    // names line up with what we call. (loom.officialMojangMappings() below.)
+    // names line up with what we call.
     mappings loom.officialMojangMappings()
 
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // Mod Menu — compile-only so the config-screen entrypoint resolves; optional at runtime.
-    modCompileOnly "maven.modrinth:modmenu:7.2.2"
+    // (exclude fabric-api so we don't drag in a second copy.)
+    modCompileOnly("com.terraformersmc:modmenu:${project.modmenu_version}") {
+        exclude(group: "net.fabricmc.fabric-api")
+    }
 
     // Vivecraft: compile against the production jar. Loom remaps it (intermediary
     // -> mojmap) for the dev classpath. It's compileOnly because at runtime the
@@ -43,11 +48,11 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 17
+    it.options.release = 21
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
     withSourcesJar()
 }

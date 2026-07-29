@@ -4,7 +4,7 @@ Cut regions out of the flat VR HUD and place them as floating panels anywhere in
 arm, your body, or fixed in the world. Maps, Xaero's Minimap, JourneyMap, Cobblemon overlays, the
 hotbar — anything that draws to the HUD works, because ViveInterface never touches those mods.
 
-**Minecraft 1.20.1 · Fabric · requires Vivecraft.** This is a test/prototype scaffold.
+**Minecraft 1.21.4 · Fabric · requires Vivecraft.** This is a test/prototype scaffold.
 
 ## How it works (the core insight)
 
@@ -89,14 +89,17 @@ on per-frame paths. The risky GL (snapshot + mask) is wrapped in try/catch and a
 
 ## Build
 
-Needs **JDK 17** and the Vivecraft production jar next to this folder
-(`../vivecraft-1.20.1-1.3.6-fabric.jar`, set via `vivecraft_jar` in `gradle.properties`).
+Needs **JDK 21** and a Vivecraft 1.21.4 production jar next to this folder
+(e.g. `../vivecraft-1.21.4-1.3.4-fabric.jar`, set via `vivecraft_jar` in `gradle.properties`).
 
 ```bash
-JAVA_HOME=".../jdk-17" ./gradlew build
+JAVA_HOME=".../jdk-21" ./gradlew build
 ```
 
-Output: `build/libs/viveinterface-0.1.0.jar`. Drop it in `mods/` alongside Fabric API + Vivecraft.
+Output: `build/libs/viveinterface-0.2.0.jar`. Drop it in `mods/` alongside Fabric API + Vivecraft.
+
+Build uses Fabric Loom (`fabric-loom-remap` 1.16.3), Fabric Loader 0.19.3, Fabric API
+0.119.4+1.21.4, official Mojang mappings, and Gradle 9.5.
 
 ## Code map
 

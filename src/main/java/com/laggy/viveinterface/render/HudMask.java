@@ -6,6 +6,7 @@ import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.vr.VrPoses;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -23,7 +24,7 @@ public final class HudMask {
         HudRenderCallback.EVENT.register(HudMask::onHud);
     }
 
-    private static void onHud(GuiGraphics g, float tickDelta) {
+    private static void onHud(GuiGraphics g, DeltaTracker tickDelta) {
         if (!VrPoses.vrActive() || !GuiTexture.available()) return;
         try {
             // 1) Full copy for the world panels (must happen before we punch holes below).

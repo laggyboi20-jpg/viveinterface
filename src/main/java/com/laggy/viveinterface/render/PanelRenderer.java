@@ -8,6 +8,7 @@ import com.laggy.viveinterface.panel.Placement;
 import com.laggy.viveinterface.vr.VrPoses;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
@@ -15,7 +16,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -92,16 +93,15 @@ public final class PanelRenderer {
         float tu0 = panel.u0, tu1 = panel.u1;
         float tv0 = 1f - panel.v0, tv1 = 1f - panel.v1;
 
-        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShader(CoreShaders.POSITION_TEX);
         RenderSystem.setShaderTexture(0, texId);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        bb.vertex(m, -hw,  hh, 0).uv(tu0, tv0).endVertex(); // top-left
-        bb.vertex(m, -hw, -hh, 0).uv(tu0, tv1).endVertex(); // bottom-left
-        bb.vertex(m,  hw, -hh, 0).uv(tu1, tv1).endVertex(); // bottom-right
-        bb.vertex(m,  hw,  hh, 0).uv(tu1, tv0).endVertex(); // top-right
-        tess.end();
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+        bb.addVertex(m, -hw,  hh, 0).setUv(tu0, tv0); // top-left
+        bb.addVertex(m, -hw, -hh, 0).setUv(tu0, tv1); // bottom-left
+        bb.addVertex(m,  hw, -hh, 0).setUv(tu1, tv1); // bottom-right
+        bb.addVertex(m,  hw,  hh, 0).setUv(tu1, tv0); // top-right
+        BufferUploader.drawWithShader(bb.buildOrThrow());
 
         ps.popPose();
     }
@@ -117,15 +117,14 @@ public final class PanelRenderer {
         ps.translate(res.pos().x - cam.x, res.pos().y - cam.y, res.pos().z - cam.z);
         ps.mulPose(res.rot());
         Matrix4f m = ps.last().pose();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        bb.vertex(m, -hw,  hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m, -hw, -hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m,  hw, -hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m,  hw,  hh, z).color(r, g, b, a).endVertex();
-        tess.end();
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        bb.addVertex(m, -hw,  hh, z).setColor(r, g, b, a);
+        bb.addVertex(m, -hw, -hh, z).setColor(r, g, b, a);
+        bb.addVertex(m,  hw, -hh, z).setColor(r, g, b, a);
+        bb.addVertex(m,  hw,  hh, z).setColor(r, g, b, a);
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -140,16 +139,15 @@ public final class PanelRenderer {
         ps.mulPose(new Quaternionf(paper.worldRot));
         Matrix4f m = ps.last().pose();
 
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         float r = 0.11f, g = 0.11f, b = 0.14f, a = 0.96f;      // dark slate
-        bb.vertex(m, -hw,  hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m, -hw, -hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m,  hw, -hh, z).color(r, g, b, a).endVertex();
-        bb.vertex(m,  hw,  hh, z).color(r, g, b, a).endVertex();
-        tess.end();
+        bb.addVertex(m, -hw,  hh, z).setColor(r, g, b, a);
+        bb.addVertex(m, -hw, -hh, z).setColor(r, g, b, a);
+        bb.addVertex(m,  hw, -hh, z).setColor(r, g, b, a);
+        bb.addVertex(m,  hw,  hh, z).setColor(r, g, b, a);
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -164,10 +162,9 @@ public final class PanelRenderer {
         ps.mulPose(new Quaternionf(paper.worldRot));
         Matrix4f m = ps.last().pose();
 
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         for (int i = 1; i < trail.size(); i++) {
             CutTool.TrailPoint b0 = trail.get(i - 1);
             CutTool.TrailPoint b1 = trail.get(i);
@@ -180,12 +177,12 @@ public final class PanelRenderer {
 
             boolean ok = b0.inBounds() && b1.inBounds();
             float r = ok ? 0.15f : 1.0f, g = ok ? 1.0f : 0.2f, bl = ok ? 0.3f : 0.2f;
-            bb.vertex(m, b0.x() + px, b0.y() + py, z).color(r, g, bl, 0.9f).endVertex();
-            bb.vertex(m, b0.x() - px, b0.y() - py, z).color(r, g, bl, 0.9f).endVertex();
-            bb.vertex(m, b1.x() - px, b1.y() - py, z).color(r, g, bl, 0.9f).endVertex();
-            bb.vertex(m, b1.x() + px, b1.y() + py, z).color(r, g, bl, 0.9f).endVertex();
+            bb.addVertex(m, b0.x() + px, b0.y() + py, z).setColor(r, g, bl, 0.9f);
+            bb.addVertex(m, b0.x() - px, b0.y() - py, z).setColor(r, g, bl, 0.9f);
+            bb.addVertex(m, b1.x() - px, b1.y() - py, z).setColor(r, g, bl, 0.9f);
+            bb.addVertex(m, b1.x() + px, b1.y() + py, z).setColor(r, g, bl, 0.9f);
         }
-        tess.end();
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -215,13 +212,12 @@ public final class PanelRenderer {
         ps.pushPose();
         ps.translate(-cam.x, -cam.y, -cam.z);
         Matrix4f m = ps.last().pose();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         colorQuad(bb, m, base, tip, up, 0.62f, 0.44f, 0.24f);
         colorQuad(bb, m, base, tip, side, 0.62f, 0.44f, 0.24f);
-        tess.end();
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -278,20 +274,19 @@ public final class PanelRenderer {
         Matrix4f m = ps.last().pose();
 
         boolean realStick = ViveConfig.get().realModels;
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         if (!realStick) {                 // the item model already draws the shaft
             colorQuad(bb, m, base, tip, up, 0.2f, 0.9f, 1.0f);
             colorQuad(bb, m, base, tip, side, 0.2f, 0.9f, 1.0f);
         }
         // a small bright quad at the tip marks the exact grab point (always shown)
-        bb.vertex(m, tip.x - tipSide.x, tip.y - tipUp.y, tip.z - tipSide.z).color(0.7f, 1f, 1f, 1f).endVertex();
-        bb.vertex(m, tip.x - tipSide.x, tip.y + tipUp.y, tip.z - tipSide.z).color(0.7f, 1f, 1f, 1f).endVertex();
-        bb.vertex(m, tip.x + tipSide.x, tip.y + tipUp.y, tip.z + tipSide.z).color(0.7f, 1f, 1f, 1f).endVertex();
-        bb.vertex(m, tip.x + tipSide.x, tip.y - tipUp.y, tip.z + tipSide.z).color(0.7f, 1f, 1f, 1f).endVertex();
-        tess.end();
+        bb.addVertex(m, tip.x - tipSide.x, tip.y - tipUp.y, tip.z - tipSide.z).setColor(0.7f, 1f, 1f, 1f);
+        bb.addVertex(m, tip.x - tipSide.x, tip.y + tipUp.y, tip.z - tipSide.z).setColor(0.7f, 1f, 1f, 1f);
+        bb.addVertex(m, tip.x + tipSide.x, tip.y + tipUp.y, tip.z + tipSide.z).setColor(0.7f, 1f, 1f, 1f);
+        bb.addVertex(m, tip.x + tipSide.x, tip.y - tipUp.y, tip.z + tipSide.z).setColor(0.7f, 1f, 1f, 1f);
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -305,16 +300,15 @@ public final class PanelRenderer {
         ps.pushPose();
         ps.translate(c.x - cam.x, c.y - cam.y, c.z - cam.z);
         Matrix4f m = ps.last().pose();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.getBuilder();
-        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         float r = 0.3f, g = 0.8f, b = 1f, a = 0.18f;
         // six faces of an axis-aligned cube [-h,h]^3
         face(bb, m, h, a, r, g, b, 0); face(bb, m, h, a, r, g, b, 1);
         face(bb, m, h, a, r, g, b, 2); face(bb, m, h, a, r, g, b, 3);
         face(bb, m, h, a, r, g, b, 4); face(bb, m, h, a, r, g, b, 5);
-        tess.end();
+        BufferUploader.drawWithShader(bb.buildOrThrow());
         ps.popPose();
     }
 
@@ -327,14 +321,14 @@ public final class PanelRenderer {
             case 4 -> new float[][]{{-h, h, h},{-h, h,-h},{ h, h,-h},{ h, h, h}}; // +Y
             default -> new float[][]{{-h,-h,-h},{-h,-h, h},{ h,-h, h},{ h,-h,-h}}; // -Y
         };
-        for (float[] v : q) bb.vertex(m, v[0], v[1], v[2]).color(r, g, b, a).endVertex();
+        for (float[] v : q) bb.addVertex(m, v[0], v[1], v[2]).setColor(r, g, b, a);
     }
 
     private static void colorQuad(BufferBuilder bb, Matrix4f m, Vector3f base, Vector3f tip, Vector3f w,
                                   float r, float g, float b) {
-        bb.vertex(m, base.x - w.x, base.y - w.y, base.z - w.z).color(r, g, b, 1f).endVertex();
-        bb.vertex(m, base.x + w.x, base.y + w.y, base.z + w.z).color(r, g, b, 1f).endVertex();
-        bb.vertex(m, tip.x + w.x, tip.y + w.y, tip.z + w.z).color(r, g, b, 1f).endVertex();
-        bb.vertex(m, tip.x - w.x, tip.y - w.y, tip.z - w.z).color(r, g, b, 1f).endVertex();
+        bb.addVertex(m, base.x - w.x, base.y - w.y, base.z - w.z).setColor(r, g, b, 1f);
+        bb.addVertex(m, base.x + w.x, base.y + w.y, base.z + w.z).setColor(r, g, b, 1f);
+        bb.addVertex(m, tip.x + w.x, tip.y + w.y, tip.z + w.z).setColor(r, g, b, 1f);
+        bb.addVertex(m, tip.x - w.x, tip.y - w.y, tip.z - w.z).setColor(r, g, b, 1f);
     }
 }

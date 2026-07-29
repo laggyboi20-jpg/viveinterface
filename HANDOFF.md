@@ -8,7 +8,7 @@ picked up on a fresh machine without the original chat history. **Read this firs
 
 ## 1. What the mod is
 
-**ViveInterface** is a client-only **Fabric 1.20.1** mod that requires **Vivecraft** (VR). It lets you
+**ViveInterface** is a client-only **Fabric 1.21.4** mod that requires **Vivecraft** (VR). It lets you
 **cut regions out of the flat VR HUD and place them as floating panels anywhere in VR** — on your arm,
 your head, or fixed in the world. Targets: Xaero's Minimap, JourneyMap, Cobblemon overlays, the
 vanilla hotbar — anything that draws to the HUD. The mod never touches those other mods.
@@ -48,14 +48,14 @@ needs **no mixins** — just that public field plus Vivecraft's public `VRClient
 
 | Thing | Value | Notes |
 |-------|-------|-------|
-| Minecraft | 1.20.1 | matches the Vivecraft build on disk |
-| Loader | Fabric Loader 0.15.11 | |
-| Fabric API | 0.92.2+1.20.1 | |
+| Minecraft | 1.21.4 | ported from 1.20.1 (see §9) |
+| Loader | Fabric Loader 0.19.3 | |
+| Fabric API | 0.119.4+1.21.4 | |
 | Mappings | **official Mojang** (`loom.officialMojangMappings()`) | so Vivecraft's `RenderTarget`/`Vec3`/`PoseStack` names line up |
-| **JDK** | **17** | **Gradle 8.12 crashes on JDK 25** ("class file major version 69"). `JAVA_HOME` must point at a JDK 17. |
-| Gradle | 8.12 (wrapper committed) | |
-| **Fabric Loom** | **1.9.2** | Loom 1.7 fails on Gradle 8.12 with `Problems.forNamespace`. Do not downgrade. |
-| Mod Menu | 7.2.2 (`maven.modrinth:modmenu`) | `modCompileOnly`, optional at runtime |
+| **JDK** | **21** | 1.21.4 targets Java 21 (`options.release = 21`). `JAVA_HOME` must point at a JDK 21. |
+| Gradle | 9.5 (wrapper committed) | |
+| **Fabric Loom** | **`fabric-loom-remap` 1.16.3** | -remap variant: 1.21.4 is obfuscated so Loom remaps Minecraft. Same plugin the sibling ViveMonkeCraft project builds with. |
+| Mod Menu | 13.0.4 (`com.terraformersmc:modmenu`) | `modCompileOnly`, optional at runtime |
 | Gson | bundled by Minecraft | used for JSON config/persistence |
 
 ### Vivecraft dependency (the non-obvious part)
@@ -64,33 +64,33 @@ Vivecraft is **not on any Maven**. It's pulled from a **local production jar** t
 the project folder:
 
 ```
-gradle.properties:  vivecraft_jar=../vivecraft-1.20.1-1.3.6-fabric.jar
+gradle.properties:  vivecraft_jar=../vivecraft-1.21.4-1.3.4-fabric.jar
 build.gradle:       modCompileOnly files(vc)     // Loom remaps intermediary -> mojmap automatically
 ```
 
-So on the new machine you must **also copy `vivecraft-1.20.1-1.3.6-fabric.jar`** and place it **one
-directory above** the `ViveInterface` folder (i.e. as a sibling). It's `modCompileOnly` because at
-runtime the user launches with the real Vivecraft mod installed.
+So on the new machine you must **also copy a Vivecraft 1.21.4 fabric jar** and place it **one
+directory above** the `ViveInterface` folder (i.e. as a sibling), then point `vivecraft_jar` at it.
+It's `modCompileOnly` because at runtime the user launches with the real Vivecraft mod installed.
 
 ### To build
 
 ```bash
-# from the ViveInterface folder, with JAVA_HOME set to a JDK 17:
-JAVA_HOME=".../jdk-17" ./gradlew build
+# from the ViveInterface folder, with JAVA_HOME set to a JDK 21:
+JAVA_HOME=".../jdk-21" ./gradlew build
 ```
 
-Output: `build/libs/viveinterface-0.1.0.jar`. Drop it in `mods/` with Fabric API + Vivecraft (+ Mod
+Output: `build/libs/viveinterface-0.2.0.jar`. Drop it in `mods/` with Fabric API + Vivecraft (+ Mod
 Menu optional). On Windows/Git-Bash the exact incantation used during development was:
 
 ```bash
-export JAVA_HOME="C:/Program Files/Java/jdk-17"
+export JAVA_HOME="C:/Program Files/Java/jdk-21"
 ./gradlew build --no-daemon
 ```
 
 ### What to copy to the new machine
 - The whole **`ViveInterface`** folder (source, gradle wrapper, `build.gradle`, `gradle.properties`).
-- The **`vivecraft-1.20.1-1.3.6-fabric.jar`** as a sibling of that folder.
-- Install **JDK 17**. The Gradle wrapper handles Gradle itself; Loom/Fabric/ModMenu download on first
+- A **Vivecraft 1.21.4 fabric jar** as a sibling of that folder (repoint `vivecraft_jar`).
+- Install **JDK 21**. The Gradle wrapper handles Gradle itself; Loom/Fabric/ModMenu download on first
   build.
 
 > The project is currently **not a git repo**. Consider `git init` on the new machine.
@@ -272,3 +272,40 @@ On the development machine there is a Claude "project memory" file summarising a
 `~/.claude/projects/.../memory/viveinterface-project.md`. That won't transfer automatically — **this
 HANDOFF.md is the portable version.** If continuing with an AI assistant on the new machine, point it
 at this file first.
+
+---
+
+## 9. 1.20.1 → 1.21.4 port notes
+
+The mod was ported from Minecraft 1.20.1 to **1.21.4**. The API surface breakage was small and fully
+contained — the VR/cut/panel/config/gui logic was untouched. What changed:
+
+**Build config**
+- `gradle.properties`: MC 1.21.4, Fabric Loader 0.19.3, Fabric API 0.119.4+1.21.4, Mod Menu 13.0.4.
+- `build.gradle`: plugin `fabric-loom-remap` 1.16.3 (was `fabric-loom` 1.9-SNAPSHOT); `options.release`
+  + source/target = **21** (was 17); Mod Menu now `com.terraformersmc:modmenu` from the TerraformersMC
+  maven (was `maven.modrinth:modmenu`).
+- `gradle-wrapper.properties`: Gradle **9.5.0** (was 8.12).
+- `viveinterface.mixins.json`: `compatibilityLevel` **JAVA_21** (was JAVA_17).
+- `fabric.mod.json`: `minecraft ~1.21.4`, `fabricloader >=0.16.0`, added `java >=21`.
+
+**Code — only two files** (the 1.21 immediate-mode render rewrite + one Fabric callback signature):
+- `render/PanelRenderer.java`:
+  - Shaders: `RenderSystem.setShader(GameRenderer::getPositionTexShader/…ColorShader)` →
+    `RenderSystem.setShader(CoreShaders.POSITION_TEX / POSITION_COLOR)`.
+  - Immediate mode: `Tesselator.getInstance().getBuilder()` + `bb.begin(…)` →
+    `BufferBuilder bb = tess.begin(…)`; `bb.vertex(m,x,y,z).uv(…)/.color(…).endVertex()` →
+    `bb.addVertex(m,x,y,z).setUv(…)/.setColor(…)` (no `endVertex`); `tess.end()` →
+    `BufferUploader.drawWithShader(bb.buildOrThrow())`.
+- `render/HudMask.java`: `HudRenderCallback` handler param `float tickDelta` → `DeltaTracker tickDelta`
+  (Fabric `onHudRender(GuiGraphics, DeltaTracker)`).
+
+**Unchanged and verified against the 1.21.4 mojmap jar:** `ItemRenderer.renderStatic` (8-arg sig
+identical), `KeyMapping` ctor + `isDown`/`consumeClick`/`clickCount`/`getName` (mixins intact),
+`GuiGraphics.fill/flush/drawCenteredString`, `Button.builder`/`Component.literal` (gui screens),
+`WorldRenderContext.camera()/matrixStack()`, and the `GlStateManager._*` texture calls in
+`GuiSnapshot`. No `ResourceLocation`/registry breakage (the mod uses neither).
+
+**Vivecraft API** (`org.vivecraft.api.client.VRClientAPI`, `org.vivecraft.api.data.*`, and the internal
+`client_vr…GuiHandler.GUI_FRAMEBUFFER`) is assumed stable across the version bump — it is the one thing
+to reverify against whatever Vivecraft 1.21.4 jar you compile/run against.
