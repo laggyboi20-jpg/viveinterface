@@ -7,7 +7,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -38,7 +37,12 @@ public final class PanelRenderer {
         if (texId == 0) return;
 
         Vec3 cam = ctx.camera().getPosition();
-        PoseStack ps = ctx.matrixStack();
+
+        // Build the world transform from ctx.positionMatrix() — the camera-rotation matrix Minecraft
+        // itself renders the level with — and translate each panel by (worldPos - cameraPos). Do NOT
+        // use ctx.matrixStack(): at WorldRenderEvents.END it doesn't carry the camera transform in
+        // 1.21.4, which left panels pinned to view space so they slid along as you walked.
+        Matrix4f base = new Matrix4f(ctx.positionMatrix());
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -48,25 +52,31 @@ public final class PanelRenderer {
 
         Panel touched = CutTool.get().touchedPanel();
         for (Panel p : PanelManager.all()) {
-            renderPanel(ps, cam, p, texId);
-            if (p == touched) renderTint(ps, cam, p, 0.2f, 1f, 0.3f, 0.30f);  // grabbable → green
+            renderPanel(base, cam, p, texId);
+            if (p == touched) renderTint(base, cam, p, 0.2f, 1f, 0.3f, 0.30f);  // grabbable → green
         }
 
         RenderSystem.enableCull();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
-    private static void renderPanel(PoseStack ps, Vec3 cam, Panel panel, int texId) {
+    /** {@code base * translate(panel - camera) * rotate(panel)} — the panel's world transform. */
+    private static Matrix4f modelOf(Matrix4f base, Vec3 cam, Panel.Resolved r) {
+        return new Matrix4f(base)
+                .translate((float) (r.pos().x - cam.x),
+                           (float) (r.pos().y - cam.y),
+                           (float) (r.pos().z - cam.z))
+                .rotate(r.rot());
+    }
+
+    private static void renderPanel(Matrix4f base, Vec3 cam, Panel panel, int texId) {
         Panel.Resolved r = panel.resolve();
         if (r == null) return;
 
         float hw = panel.effectiveWidth() * 0.5f;
         float hh = panel.effectiveHeight() * 0.5f;
 
-        ps.pushPose();
-        ps.translate(r.pos().x - cam.x, r.pos().y - cam.y, r.pos().z - cam.z);
-        ps.mulPose(r.rot());
-        Matrix4f m = ps.last().pose();
+        Matrix4f m = modelOf(base, cam, r);
 
         // Framebuffer textures are bottom-left origin, so flip V.
         float tu0 = panel.u0, tu1 = panel.u1;
@@ -81,21 +91,16 @@ public final class PanelRenderer {
         bb.addVertex(m,  hw, -hh, 0).setUv(tu1, tv1); // bottom-right
         bb.addVertex(m,  hw,  hh, 0).setUv(tu1, tv0); // top-right
         BufferUploader.drawWithShader(bb.buildOrThrow());
-
-        ps.popPose();
     }
 
     /** Translucent colour wash over a panel (e.g. green when the hand is colliding with it). */
-    private static void renderTint(PoseStack ps, Vec3 cam, Panel panel, float r, float g, float b, float a) {
+    private static void renderTint(Matrix4f base, Vec3 cam, Panel panel, float r, float g, float b, float a) {
         Panel.Resolved res = panel.resolve();
         if (res == null) return;
         float hw = panel.effectiveWidth() * 0.5f, hh = panel.effectiveHeight() * 0.5f;
         float z = 0.002f; // just in front of the panel
 
-        ps.pushPose();
-        ps.translate(res.pos().x - cam.x, res.pos().y - cam.y, res.pos().z - cam.z);
-        ps.mulPose(res.rot());
-        Matrix4f m = ps.last().pose();
+        Matrix4f m = modelOf(base, cam, res);
         RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -104,6 +109,5 @@ public final class PanelRenderer {
         bb.addVertex(m,  hw, -hh, z).setColor(r, g, b, a);
         bb.addVertex(m,  hw,  hh, z).setColor(r, g, b, a);
         BufferUploader.drawWithShader(bb.buildOrThrow());
-        ps.popPose();
     }
 }
