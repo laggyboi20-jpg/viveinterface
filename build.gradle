@@ -12,6 +12,7 @@ base { archivesName = project.archives_base_name }
 repositories {
     mavenCentral()
     maven { url "https://maven.terraformersmc.com/releases/" }   // Mod Menu
+    maven { url "https://maven.shedaniel.me/" }                  // Cloth Config
 }
 
 dependencies {
@@ -23,10 +24,14 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // Mod Menu — compile-only so the config-screen entrypoint resolves; optional at runtime.
-    // (exclude fabric-api so we don't drag in a second copy.)
+    // Mod Menu + Cloth Config — compile-only so the config-screen entrypoint resolves; optional at
+    // runtime (the ModMenu entry no-ops if they're absent). (exclude fabric-api to avoid a 2nd copy.)
     modCompileOnly("com.terraformersmc:modmenu:${project.modmenu_version}") {
         exclude(group: "net.fabricmc.fabric-api")
+    }
+    modCompileOnly("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
+        exclude(group: "net.fabricmc.fabric-api")
+        exclude(group: "net.fabricmc", module: "fabric-loader")   // we already provide the loader
     }
 
     // Vivecraft: compile against the production jar. Loom remaps it (intermediary

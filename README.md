@@ -43,8 +43,10 @@ for the game doesn't stop us reading them (`VrTriggers`).
 > **Trigger mapping assumption:** right/dominant trigger = vanilla ATTACK (cut), left/off trigger =
 > vanilla USE (release). If your Vivecraft bindings differ, flip the two keys in `vr/VrTriggers.java`.
 
-Keybind (N) is rebindable under **Controls → ViveInterface**. M is a desktop fallback for "release",
-**K** opens the pieces settings tab.
+**N** is the mod's only keybind (rebindable under **Controls → ViveInterface**) — it stays a key
+because cut mode is fully modal in VR, so you can't open a 2D menu to get back out. Everything else
+(toggles, cutting geometry, per-element transforms, placed-piece resize/delete) lives in
+**Mod Menu → ViveInterface**, a Cloth Config screen. In VR, release is a trigger, not a key.
 
 ### Selecting & repositioning pieces (hand hitboxes, no physics engine)
 
@@ -71,21 +73,21 @@ Following the approach of ViveTaCZ's ammo HUD, a body-anchored panel sits at a t
 (`onHand` / `held` / `onHead`); fine-tune per piece in the settings screen. (More anchors — elbows,
 waist — are a small extension of `PanelAnchor` + `Placement`.)
 
-### Persistence & settings (K)
+### Persistence & settings (Mod Menu → ViveInterface)
 
 Placed pieces save to `config/viveinterface/panels.json` and reload on join — the UV rects re-sample
-the live HUD, so a glued minimap comes back **live** without re-cutting. The settings tab lets you
-step through pieces and adjust **scale**, **position** (WORLD nudge, 0,0,0 = where left; or the
-hand/head offset), **rotation** (hand/head only), **anchor**, or delete — every change saves.
+the live HUD, so a glued minimap comes back **live** without re-cutting. All settings live in the
+**Cloth Config** screen (Mod Menu cog): General (real models / trigger swap / debug logging), Cutting
+geometry (grab & glue radii, blade/stick length, menu size), a transform page each for the sword,
+stick, and the default hand/head/held panel placements (XYZ + yaw/pitch/roll + scale), and a
+**Placed pieces** page to resize or delete each placed panel. Everything persists on Save.
 
 ### Debugging (so we don't guess)
 
 Modelled on ViveTaCZ's `DebugLog`/`DebugState`: events (cut / grab / release / save / snapshot /
-mask) log to the game log under the `ViveInterface` logger, gated by a master toggle and rate-limited
-on per-frame paths. The risky GL (snapshot + mask) is wrapped in try/catch and always logs failures.
-
-- **J** — dump full live state (VR active, framebuffer size, snapshot texId, panels, hand poses).
-- **L** — toggle logging on/off.
+mask) log to the game log under the `ViveInterface` logger, gated by the **Debug logging** toggle in
+the config screen and rate-limited on per-frame paths. The risky GL (snapshot + mask) is wrapped in
+try/catch and always logs failures.
 
 ## Build
 
@@ -118,11 +120,8 @@ Build uses Fabric Loom (`fabric-loom-remap` 1.16.3), Fabric Loader 0.19.3, Fabri
 | `panel/PanelHitbox.java` | Hand-sphere vs panel-box test — used only while grabbing, not a physics loop. |
 | `panel/PanelStore.java` | Save/load panels to `config/viveinterface/panels.json` (survives relog). |
 | `config/ViveConfig.java` | Global settings (`settings.json`): debug, trigger swap, real models, cutting geometry. |
-| `gui/GlobalSettingsScreen.java` | Global settings (Mod Menu cog / ⚙ button): toggles, tunables, transform editors. |
-| `gui/PlacementEditScreen.java` | Reusable XYZ + yaw/pitch/roll + scale editor for one `Placement`. |
-| `gui/ViveInterfaceScreen.java` | Per-piece tab (K): scale, position, rotation, anchor, delete. |
-| `gui/ViveInterfaceModMenu.java` | Mod Menu entry point → opens the global settings screen. |
-| `debug/DebugLog.java` | Toggle-gated logging (`logf`/`throttled`/`once`) + state dump (J). |
+| `gui/ViveInterfaceModMenu.java` | Mod Menu entry → the whole **Cloth Config** settings screen (general toggles, cutting geometry, per-element transform pages, placed-piece resize/delete). |
+| `debug/DebugLog.java` | Toggle-gated logging (`logf`/`throttled`/`once`) + `dumpState()`. |
 | `render/PanelRenderer.java` | Draws panels (from the snapshot), the paper + backing, the green/red trail, and the blade. |
 | `render/GuiSnapshot.java` | Per-frame copy of the HUD framebuffer so panels keep full content while the flat panel gets holed. |
 | `render/HudMask.java` | Snapshots the HUD, then punches transparent holes for each placed panel (no double render). |

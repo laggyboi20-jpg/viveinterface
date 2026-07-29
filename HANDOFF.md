@@ -176,12 +176,14 @@ the HUD mask, loads config + saved panels, and drives a client-tick loop.
   `swapTriggers`, `realModels`, cutting geometry (blade/stick length, grab/glue radii, menu
   distance/width), and per-element `Placement`s (sword, stick, hand/head/held panel defaults). All
   read live by CutTool/VrTriggers/PanelRenderer.
-- **`GlobalSettingsScreen`** — the config screen: toggles, +/- tunable rows, and buttons that open a
-  transform editor per element. Reached from Mod Menu's cog or the pieces screen's ⚙ button.
-- **`PlacementEditScreen`** — reusable −/+ editor for one `Placement` (X/Y/Z, Yaw/Pitch/Roll, Scale).
-- **`ViveInterfaceScreen`** — the per-piece editor (scale, position, rotation, anchor, delete),
-  opened with **K**.
-- **`ViveInterfaceModMenu`** — Mod Menu entry point → opens `GlobalSettingsScreen`.
+- **`ViveInterfaceModMenu`** — Mod Menu entry point AND the entire settings UI, built with **Cloth
+  Config** (matching ViveMonkeCraft's style). Categories: General (real models / swap triggers /
+  debug logging), Cutting geometry (grab & glue radii, blade/stick length, menu distance/width),
+  a transform page each for sword / stick / hand-panel / head-panel / held-piece (`Placement`: X/Y/Z +
+  yaw/pitch/roll + scale), and a Placed-pieces page (per-panel scale + delete). Reads live `ViveConfig`;
+  persists via `ViveConfig.save()` + `PanelStore.save()` in the saving runnable. No-ops if Cloth Config
+  isn't installed. (The old vanilla-widget screens — GlobalSettingsScreen / PlacementEditScreen /
+  ViveInterfaceScreen — were removed in favour of this; see §10.)
 
 ### `debug/`
 - **`DebugLog`** — toggle-gated logging (`log/logf/throttled/once`, `v(Vec3)`/`q(Quat)` formatters) to
@@ -190,22 +192,23 @@ the HUD mask, loads config + saved panels, and drives a client-tick loop.
 
 ---
 
-## 4. Controls (defaults; rebindable under Controls → ViveInterface)
+## 4. Controls
 
-| Key | Action |
-|-----|--------|
-| **N** | Toggle cut mode |
+Just **one keybind** now (rebindable under Controls → ViveInterface); everything else moved into the
+Mod Menu → ViveInterface config screen (see §10 for why).
+
+| Input | Action |
+|-------|--------|
+| **N** (only keybind) | Toggle cut mode |
 | Right trigger (ATTACK) | Hold to cut |
 | Off hand reaching in | Grab a piece (hitbox) |
 | Either trigger | Let go of the carried piece |
-| **G** (bind to Quest **A**) | Change hand (move piece to other hand) |
-| **M** | Release held piece (desktop fallback) |
-| **K** | Per-piece settings screen |
-| **J** | Dump debug state to log |
-| **L** | Toggle debug logging |
 
 Config files live in `config/viveinterface/`: `settings.json` (global) and `panels.json` (placed
-pieces).
+pieces). Everything in `settings.json` is editable from the Cloth Config screen.
+
+> **Change-hand** (was **G** / Quest A) currently has no keybind — it lost its key in the one-keybind
+> cleanup. `CutTool.changeHand()` still exists; re-add a keybind or a VR gesture if you want it back.
 
 ---
 
@@ -309,3 +312,29 @@ identical), `KeyMapping` ctor + `isDown`/`consumeClick`/`clickCount`/`getName` (
 **Vivecraft API** (`org.vivecraft.api.client.VRClientAPI`, `org.vivecraft.api.data.*`, and the internal
 `client_vr…GuiHandler.GUI_FRAMEBUFFER`) is assumed stable across the version bump — it is the one thing
 to reverify against whatever Vivecraft 1.21.4 jar you compile/run against.
+
+**Verified building & running** against `vivecraft-1.21.4-1.3.15-fabric.jar`: the mod loads, VR
+connects, and `[VI/SNAP] first HUD capture 1280x720` confirms the framebuffer snapshot/render path
+works on 1.21.4. Not yet tuned in-headset (placements etc.).
+
+---
+
+## 10. Control-scheme redesign → Cloth Config (post-first-headset-test)
+
+First in-headset test feedback: the six keybinds were confusing and "did nothing visible" (e.g. the
+sword appeared at the body, not the hand). Decision: **collapse to a single keybind and move every
+other control into a Mod Menu settings screen**, built with **Cloth Config** to match ViveMonkeCraft.
+
+- **Only `N` remains a keybind** (toggle cut mode) — kept because cut mode is fully modal in VR, so a
+  2D menu can't be opened to exit it. Removed: `M` (release), `G` (change hand), `K` (settings),
+  `J` (debug dump), `L` (debug toggle). In VR, release/grab are trigger-driven anyway.
+- **`gui/ViveInterfaceModMenu`** rewritten from a one-line `GlobalSettingsScreen::new` factory into a
+  full Cloth `ConfigBuilder` screen (see §3 for the category list). Deleted `GlobalSettingsScreen`,
+  `PlacementEditScreen`, `ViveInterfaceScreen` (the vanilla-widget screens).
+- **Build**: added `me.shedaniel.cloth:cloth-config-fabric:17.0.144` (shedaniel maven) as
+  `modCompileOnly`, excluding its transitive `fabric-loader` (0.16.9, not in the offline cache — we
+  provide 0.19.3). Added `cloth-config` to `fabric.mod.json` suggests. `ViveInterfaceModMenu` no-ops
+  if Cloth isn't installed, so the mod still loads standalone.
+- **Regression to note**: change-hand has no trigger yet (see §4 note). The "sword at body" issue is
+  now tunable on the **Sword transform** page rather than being a fixed guess — still needs an
+  in-headset dial-in.
