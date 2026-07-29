@@ -131,6 +131,15 @@ public final class CutTool {
                     0f, 0f, 1f, (float) look.x, (float) look.y, (float) look.z));
         }
 
+        // Stagger multiple pieces sideways (along the panel's right axis) so a second cut doesn't land
+        // exactly on the first — coplanar quads at the same spot z-fight and look like flickering.
+        int existing = PanelManager.all().size();
+        if (existing > 0) {
+            Vector3f right = slice.worldRot.transform(new Vector3f(1f, 0f, 0f));
+            float step = slice.widthMeters + 0.04f;
+            slice.worldPos.add(right.mul(existing * step));
+        }
+
         PanelManager.add(slice);
         PanelStore.save();
         DebugLog.logf("CUT", "screen cut uv=(%.2f,%.2f)-(%.2f,%.2f) w=%.2f panels=%d",

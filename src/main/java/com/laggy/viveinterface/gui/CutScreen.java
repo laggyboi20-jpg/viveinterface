@@ -1,6 +1,8 @@
 package com.laggy.viveinterface.gui;
 
 import com.laggy.viveinterface.cut.CutTool;
+import com.laggy.viveinterface.panel.Panel;
+import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.render.GuiSnapshot;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -15,17 +17,18 @@ import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 
+import java.util.List;
+
 /**
  * The cut UI, as a real Minecraft {@link Screen}. In VR, Vivecraft renders any open screen as the
- * flat pointer panel — so this gives us reliable visibility, native movement-lock + input capture
- * (no fragile keybind-suppression), and a place to put a close button so you never get stuck in cut
- * mode. It shows a still of the live HUD (the "desktop GUI"); drag a rectangle on it with the pointer
- * (VR laser or mouse) and press <b>Cut</b> to lift that region out as a floating panel in the world.
- *
- * <p>This is the "get it working" version — a flat drag-to-select box. Richer in-VR hand interaction
- * (Vivecraft tracks the hands over an open screen) is a planned follow-up.
+ * flat pointer panel — reliable visibility, native movement-lock + input capture, and a close button
+ * so you never get stuck. It shows a still of the live HUD (the "desktop GUI") filling the panel;
+ * drag a rectangle on it with the pointer (VR laser / mouse) and press <b>Cut</b> to lift that region
+ * out as a floating panel. A strip down the right shows every piece you've cut so far.
  */
 public class CutScreen extends Screen {
+
+    private static final int STRIP_W = 108;   // right-hand column that shows cut-piece thumbnails
 
     // The HUD still, and the on-screen rectangle we draw it into.
     private int imgX, imgY, imgW, imgH;
@@ -43,43 +46,45 @@ public class CutScreen extends Screen {
 
     @Override
     protected void init() {
-        // Fit the HUD still into the middle of the screen, keeping its aspect ratio, leaving room for
-        // the title (top) and the button bar (bottom).
+        // Fill as much of the panel as possible (keeping the HUD aspect) so the real GUI behind it
+        // doesn't peek out — leaving a slim title strip on top, a button bar below, and the
+        // cut-pieces column on the right.
         float aspect = (GuiSnapshot.width() > 0 && GuiSnapshot.height() > 0)
                 ? (float) GuiSnapshot.width() / GuiSnapshot.height()
                 : 16f / 9f;
-        int top = 34, bottom = 40;
-        int availH = Math.max(40, this.height - top - bottom);
-        int availW = (int) (this.width * 0.9f);
-        imgH = availH;
-        imgW = (int) (imgH * aspect);
-        if (imgW > availW) { imgW = availW; imgH = (int) (imgW / aspect); }
-        imgX = (this.width - imgW) / 2;
+        int top = 22, bottom = 28, leftPad = 6;
+        int availW = this.width - STRIP_W - leftPad - 6;
+        int availH = this.height - top - bottom;
+        imgW = availW;
+        imgH = (int) (imgW / aspect);
+        if (imgH > availH) { imgH = availH; imgW = (int) (imgH * aspect); }
+        imgX = leftPad + (availW - imgW) / 2;
         imgY = top + (availH - imgH) / 2;
 
-        int by = this.height - 30;
+        int by = this.height - 24;
+        int mid = (imgX + imgW / 2);
         addRenderableWidget(Button.builder(Component.literal("Cut selection"), b -> cutSelection())
-                .bounds(this.width / 2 - 154, by, 150, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Clear"), b -> { hasSelection = false; })
-                .bounds(this.width / 2 + 4, by, 60, 20).build());
+                .bounds(mid - 150, by, 150, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Clear box"), b -> { hasSelection = false; })
+                .bounds(mid + 4, by, 70, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose())
-                .bounds(this.width / 2 + 68, by, 86, 20).build());
-        // Close (X) in the top-right corner so you can always bail out of cut mode.
+                .bounds(mid + 78, by, 72, 20).build());
+        // Close (X) in the very top-right corner so you can always bail out of cut mode.
         addRenderableWidget(Button.builder(Component.literal("§cX"), b -> onClose())
-                .bounds(this.width - 24, 4, 20, 20).build());
+                .bounds(this.width - 22, 2, 20, 20).build());
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g, mouseX, mouseY, partialTick);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+        g.drawString(this.font, this.title, imgX, 8, 0xFFFFFF, false);
 
         if (GuiSnapshot.ready() && GuiSnapshot.texId() != 0) {
-            drawHudStill(g, GuiSnapshot.texId(), imgX, imgY, imgW, imgH);
+            drawHudSub(g, GuiSnapshot.texId(), imgX, imgY, imgW, imgH, 0f, 0f, 1f, 1f);
         } else {
             g.drawCenteredString(this.font,
                     Component.literal("§eHUD not captured yet — look around in-world once, then reopen."),
-                    this.width / 2, imgY + imgH / 2, 0xFFFF66);
+                    imgX + imgW / 2, imgY + imgH / 2, 0xFFFF66);
         }
         g.renderOutline(imgX - 1, imgY - 1, imgW + 2, imgH + 2, 0xFF303040);
 
@@ -90,8 +95,40 @@ public class CutScreen extends Screen {
             g.renderOutline(x0, y0, x1 - x0, y1 - y0, 0xFF33FF66);
         }
 
-        g.drawCenteredString(this.font, status, this.width / 2, imgY + imgH + 6, 0xCCCCCC);
+        g.drawCenteredString(this.font, status, imgX + imgW / 2, this.height - 40, 0xCCCCCC);
+        drawPieceStrip(g);
         super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    /** The right-hand column: a thumbnail of every placed piece (its cut-out region of the HUD). */
+    private void drawPieceStrip(GuiGraphics g) {
+        int sx = this.width - STRIP_W + 4;
+        int sw = STRIP_W - 10;
+        g.drawString(this.font, Component.literal("§fCut pieces"), sx, 8, 0xFFFFFF, false);
+        List<Panel> all = PanelManager.all();
+        if (all.isEmpty()) {
+            g.drawString(this.font, Component.literal("§8(none yet)"), sx, 24, 0x888888, false);
+            return;
+        }
+        int y = 24;
+        int tex = GuiSnapshot.texId();
+        for (int i = 0; i < all.size(); i++) {
+            Panel p = all.get(i);
+            float du = Math.abs(p.u1 - p.u0), dv = Math.abs(p.v1 - p.v0);
+            float snapAspect = (GuiSnapshot.width() > 0 && GuiSnapshot.height() > 0)
+                    ? (float) GuiSnapshot.width() / GuiSnapshot.height() : 16f / 9f;
+            float thumbAspect = (dv > 1e-4f) ? (du / dv) * snapAspect : 1f;
+            int tw = sw, th = Math.max(6, (int) (tw / Math.max(0.05f, thumbAspect)));
+            if (th > 46) { th = 46; tw = (int) (th * thumbAspect); }
+            if (y + th + 12 > this.height - 6) break;   // ran out of room
+            if (GuiSnapshot.ready() && tex != 0) {
+                drawHudSub(g, tex, sx, y, tw, th,
+                        Math.min(p.u0, p.u1), Math.min(p.v0, p.v1), Math.max(p.u0, p.u1), Math.max(p.v0, p.v1));
+            }
+            g.renderOutline(sx - 1, y - 1, tw + 2, th + 2, 0xFF404050);
+            g.drawString(this.font, Component.literal("§7#" + (i + 1)), sx, y + th + 1, 0xAAAAAA, false);
+            y += th + 12;
+        }
     }
 
     @Override
@@ -137,14 +174,17 @@ public class CutScreen extends Screen {
         float v1 = (float) ((Math.max(selY0, selY1) - imgY) / imgH);
         boolean ok = CutTool.placeFromUv(u0, v0, u1, v1);
         status = ok
-                ? Component.literal("§aCut placed in the world. Drag another, or press Done.")
+                ? Component.literal("§aCut placed. Drag another, or press Done.")
                 : Component.literal("§eSelection too small — try a bigger box.");
         hasSelection = false;
     }
 
-    // Draw our raw HUD-snapshot GL texture into the screen rect (V-flipped: framebuffers are
-    // bottom-left origin). GuiGraphics.blit only takes a ResourceLocation, so we draw it by hand.
-    private static void drawHudStill(GuiGraphics g, int texId, int x, int y, int w, int h) {
+    // Draw a sub-region (u0..u1, v0..v1, top-left origin) of our raw HUD-snapshot GL texture into a
+    // screen rect. V is flipped because framebuffers are bottom-left origin. GuiGraphics.blit only
+    // takes a ResourceLocation, so we draw it by hand.
+    private static void drawHudSub(GuiGraphics g, int texId, int x, int y, int w, int h,
+                                   float u0, float v0, float u1, float v1) {
+        float tv0 = 1f - v0, tv1 = 1f - v1;
         RenderSystem.enableBlend();
         RenderSystem.setShader(CoreShaders.POSITION_TEX);
         RenderSystem.setShaderTexture(0, texId);
@@ -152,10 +192,10 @@ public class CutScreen extends Screen {
         Matrix4f m = g.pose().last().pose();
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        bb.addVertex(m, x,     y,     0).setUv(0f, 1f);   // top-left
-        bb.addVertex(m, x,     y + h, 0).setUv(0f, 0f);   // bottom-left
-        bb.addVertex(m, x + w, y + h, 0).setUv(1f, 0f);   // bottom-right
-        bb.addVertex(m, x + w, y,     0).setUv(1f, 1f);   // top-right
+        bb.addVertex(m, x,     y,     0).setUv(u0, tv0);   // top-left
+        bb.addVertex(m, x,     y + h, 0).setUv(u0, tv1);   // bottom-left
+        bb.addVertex(m, x + w, y + h, 0).setUv(u1, tv1);   // bottom-right
+        bb.addVertex(m, x + w, y,     0).setUv(u1, tv0);   // top-right
         BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
