@@ -73,6 +73,14 @@ public class ViveInterfaceModMenu implements ModMenuApi {
                         + "placements are tuned right here."))
                 .build());
 
+        general.addEntry(eb.startAlphaColorField(Component.literal("Piece background"), c.backgroundColor)
+                .setDefaultValue(0xE0101018)
+                .setTooltip(Component.literal("Colour drawn behind a cut piece and behind the cut screen, so "
+                                + "translucent parts of the HUD don't show the world through them."),
+                        Component.literal("§eSet the alpha to 0 for no background§7 — the piece then stays "
+                                + "see-through like before."))
+                .setSaveConsumer(v -> c.backgroundColor = v).build());
+
         general.addEntry(eb.startBooleanToggle(Component.literal("Swap cut / release triggers"), c.swapTriggers)
                 .setDefaultValue(false)
                 .setTooltip(Component.literal("Flip this if your Vivecraft binds the release trigger to the "

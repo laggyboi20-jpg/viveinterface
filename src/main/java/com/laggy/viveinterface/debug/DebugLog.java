@@ -100,8 +100,8 @@ public final class DebugLog {
                 vr, GuiTexture.available(), GuiTexture.width(), GuiTexture.height()));
         emit(String.format("[VI/DUMP] snapshot ready=%s texId=%d", GuiSnapshot.ready(), GuiSnapshot.texId()));
         CutTool cut = CutTool.get();
-        emit(String.format("[VI/DUMP] cutState=%s trailPts=%d panels=%d",
-                cut.state(), cut.trail().size(), PanelManager.all().size()));
+        emit(String.format("[VI/DUMP] grabState=%s panels=%d",
+                cut.state(), PanelManager.all().size()));
         if (vr) {
             emit(String.format("[VI/DUMP] head=%s main=%s off=%s",
                     fmt(VrPoses.head()), fmt(VrPoses.mainHand()), fmt(VrPoses.offHand())));

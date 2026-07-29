@@ -73,11 +73,19 @@ public final class Panel {
         };
     }
 
-    /** Apply {@link #place} on top of a live body pose: rotate, then translate in the rotated frame. */
+    /**
+     * Body-relative transform used by every non-WORLD anchor: {@code world = bodyPos + bodyRot*relPos}
+     * and {@code worldRot = bodyRot * relRot}. Kept as a quaternion (not the euler {@link Placement})
+     * so grabbing a piece can preserve its exact orientation instead of snapping to a preset.
+     */
+    public final Vector3f relPos = new Vector3f();
+    public final Quaternionf relRot = new Quaternionf();
+
+    /** Apply the body-relative transform on top of a live body pose. */
     private Resolved fromBody(VrPoses.BodyPose body) {
         if (body == null) return null;
-        Quaternionf rot = new Quaternionf(body.rot()).mul(place.rotation());
-        Vector3f off = rot.transform(new Vector3f(place.posX, place.posY, place.posZ));
+        Quaternionf rot = new Quaternionf(body.rot()).mul(relRot);
+        Vector3f off = new Quaternionf(body.rot()).transform(new Vector3f(relPos));
         Vec3 p = body.pos();
         Vector3f pos = new Vector3f((float) p.x + off.x, (float) p.y + off.y, (float) p.z + off.z);
         return new Resolved(pos, rot);
@@ -95,6 +103,28 @@ public final class Panel {
         };
         this.place = def.copy();
         this.scale = def.scale;   // configurable default size for this anchor
+        applyPlacement();
+    }
+
+    /** Bake {@link #place} (the configured euler preset) into {@link #relPos}/{@link #relRot}. */
+    public void applyPlacement() {
+        relRot.set(place.rotation());
+        relPos.set(new Quaternionf(relRot).transform(new Vector3f(place.posX, place.posY, place.posZ)));
+    }
+
+    /**
+     * Attach to a body part <b>keeping the piece exactly where it currently is</b> (used when a VR hand
+     * grabs it, so it doesn't snap to a preset offset).
+     */
+    public void attachToBody(PanelAnchor bodyAnchor, VrPoses.BodyPose body) {
+        Resolved r = resolve();
+        if (body == null || r == null) return;
+        Quaternionf inv = new Quaternionf(body.rot()).conjugate();
+        Vec3 bp = body.pos();
+        relPos.set(inv.transform(new Vector3f(
+                r.pos().x - (float) bp.x, r.pos().y - (float) bp.y, r.pos().z - (float) bp.z)));
+        relRot.set(new Quaternionf(inv).mul(r.rot()));
+        this.anchor = bodyAnchor;
     }
 
     /** Freeze the current resolved transform into a WORLD anchor (used on "drop"). */

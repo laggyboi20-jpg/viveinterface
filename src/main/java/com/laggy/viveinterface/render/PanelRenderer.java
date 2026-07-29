@@ -1,5 +1,6 @@
 package com.laggy.viveinterface.render;
 
+import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
@@ -50,10 +51,19 @@ public final class PanelRenderer {
         RenderSystem.disableCull();          // panels are double-sided
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
+        int bg = ViveConfig.get().backgroundColor;
+        float bgA = ((bg >>> 24) & 0xFF) / 255f;
+
         Panel touched = CutTool.get().touchedPanel();
         for (Panel p : PanelManager.all()) {
+            // Solid backing so translucent parts of the HUD don't show the world through them.
+            // Alpha 0 = "no background" → skip and let it stay see-through.
+            if (bgA > 0f) {
+                renderQuad(base, cam, p, -0.001f,
+                        ((bg >> 16) & 0xFF) / 255f, ((bg >> 8) & 0xFF) / 255f, (bg & 0xFF) / 255f, bgA);
+            }
             renderPanel(base, cam, p, texId);
-            if (p == touched) renderTint(base, cam, p, 0.2f, 1f, 0.3f, 0.30f);  // grabbable → green
+            if (p == touched) renderQuad(base, cam, p, 0.002f, 0.2f, 1f, 0.3f, 0.30f);  // grabbable → green
         }
 
         RenderSystem.enableCull();
@@ -93,12 +103,15 @@ public final class PanelRenderer {
         BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
-    /** Translucent colour wash over a panel (e.g. green when the hand is colliding with it). */
-    private static void renderTint(Matrix4f base, Vec3 cam, Panel panel, float r, float g, float b, float a) {
+    /**
+     * A flat coloured quad the size of the panel, offset along its normal by {@code z} — used both for
+     * the opaque backing (behind, negative z) and the green grabbable wash (in front, positive z).
+     */
+    private static void renderQuad(Matrix4f base, Vec3 cam, Panel panel, float z,
+                                   float r, float g, float b, float a) {
         Panel.Resolved res = panel.resolve();
         if (res == null) return;
         float hw = panel.effectiveWidth() * 0.5f, hh = panel.effectiveHeight() * 0.5f;
-        float z = 0.002f; // just in front of the panel
 
         Matrix4f m = modelOf(base, cam, res);
         RenderSystem.setShader(CoreShaders.POSITION_COLOR);

@@ -32,6 +32,8 @@ public final class PanelStore {
         String anchor;
         float[] worldPos, worldRot, userOffset;
         float[] place;   // posX, posY, posZ, yaw, pitch, roll
+        float[] relPos;  // body-relative offset (non-WORLD anchors)
+        float[] relRot;  // body-relative rotation quaternion x,y,z,w
         float widthMeters, scale;
     }
 
@@ -86,6 +88,8 @@ public final class PanelStore {
         d.worldRot = new float[]{p.worldRot.x, p.worldRot.y, p.worldRot.z, p.worldRot.w};
         d.userOffset = new float[]{p.userOffset.x, p.userOffset.y, p.userOffset.z};
         d.place = new float[]{p.place.posX, p.place.posY, p.place.posZ, p.place.yaw, p.place.pitch, p.place.roll};
+        d.relPos = new float[]{p.relPos.x, p.relPos.y, p.relPos.z};
+        d.relRot = new float[]{p.relRot.x, p.relRot.y, p.relRot.z, p.relRot.w};
         return d;
     }
 
@@ -98,6 +102,12 @@ public final class PanelStore {
         if (d.userOffset != null) p.userOffset.set(d.userOffset[0], d.userOffset[1], d.userOffset[2]);
         if (d.place != null && d.place.length >= 6) {
             p.place = new Placement(d.place[0], d.place[1], d.place[2], d.place[3], d.place[4], d.place[5]);
+        }
+        if (d.relPos != null && d.relPos.length >= 3 && d.relRot != null && d.relRot.length >= 4) {
+            p.relPos.set(d.relPos[0], d.relPos[1], d.relPos[2]);
+            p.relRot.set(d.relRot[0], d.relRot[1], d.relRot[2], d.relRot[3]);
+        } else {
+            p.applyPlacement();   // older file: derive the body-relative transform from `place`
         }
         return p;
     }

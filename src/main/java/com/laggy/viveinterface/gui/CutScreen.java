@@ -1,5 +1,6 @@
 package com.laggy.viveinterface.gui;
 
+import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
@@ -89,6 +90,10 @@ public class CutScreen extends Screen {
         g.drawString(this.font, this.title, imgX, 8, 0xFFFFFF, false);
 
         if (GuiSnapshot.ready() && GuiSnapshot.texId() != 0) {
+            // Backing first, so translucent parts of the HUD read as a sheet rather than showing the
+            // world behind. Alpha 0 in the config means "no background" — leave it see-through.
+            int bg = ViveConfig.get().backgroundColor;
+            if (((bg >>> 24) & 0xFF) != 0) g.fill(imgX, imgY, imgX + imgW, imgY + imgH, bg);
             drawHudSub(g, GuiSnapshot.texId(), imgX, imgY, imgW, imgH, 0f, 0f, 1f, 1f);
         } else {
             g.drawCenteredString(this.font,

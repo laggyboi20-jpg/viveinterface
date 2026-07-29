@@ -28,6 +28,13 @@ public final class ViveConfig {
     /** Render the sword/stick as real item models (else simple coloured quads). */
     public boolean realModels = true;
 
+    /**
+     * ARGB backing drawn behind a placed piece and behind the cut screen's HUD image, so translucent
+     * parts of the HUD read as a solid sheet instead of showing the world through them.
+     * <b>Alpha 0 = no background</b> (fully see-through, the old behaviour).
+     */
+    public int backgroundColor = 0xE0101018;   // near-opaque dark slate
+
     // Cutting geometry (metres).
     public float bladeLength = 0.42f;
     public float selectStickLength = 0.16f;
@@ -60,6 +67,7 @@ public final class ViveConfig {
                     INSTANCE.debugLogging = in.debugLogging;
                     INSTANCE.swapTriggers = in.swapTriggers;
                     INSTANCE.realModels = in.realModels;
+                    INSTANCE.backgroundColor = in.backgroundColor;
                     if (in.bladeLength > 0) INSTANCE.bladeLength = in.bladeLength;
                     if (in.selectStickLength > 0) INSTANCE.selectStickLength = in.selectStickLength;
                     if (in.grabRadius > 0) INSTANCE.grabRadius = in.grabRadius;
