@@ -1,0 +1,9 @@
+{
+  "category.viveinterface": "ViveInterface",
+  "key.viveinterface.toggle_cut": "Toggle cut mode (menu + sword)",
+  "key.viveinterface.place": "Release held slice (fallback)",
+  "key.viveinterface.change_hand": "Change hand (bind to Quest A)",
+  "key.viveinterface.settings": "Open pieces settings",
+  "key.viveinterface.debug_dump": "Debug: dump state to log",
+  "key.viveinterface.debug_toggle": "Debug: toggle logging"
+}

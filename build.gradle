@@ -1,0 +1,53 @@
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+base { archivesName = project.archives_base_name }
+
+repositories {
+    mavenCentral()
+    maven { url "https://api.modrinth.com/maven" }   // Mod Menu
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    // Use official Mojang mappings so Vivecraft's RenderTarget / Vec3 / PoseStack
+    // names line up with what we call. (loom.officialMojangMappings() below.)
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Mod Menu — compile-only so the config-screen entrypoint resolves; optional at runtime.
+    modCompileOnly "maven.modrinth:modmenu:7.2.2"
+
+    // Vivecraft: compile against the production jar. Loom remaps it (intermediary
+    // -> mojmap) for the dev classpath. It's compileOnly because at runtime the
+    // user launches with the real Vivecraft mod present.
+    def vc = file(project.vivecraft_jar)
+    if (vc.exists()) {
+        modCompileOnly files(vc)
+    } else {
+        logger.warn("[ViveInterface] Vivecraft jar not found at ${vc} — set 'vivecraft_jar' in gradle.properties.")
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 17
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
+}

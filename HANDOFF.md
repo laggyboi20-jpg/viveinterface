@@ -1,0 +1,274 @@
+# ViveInterface — Developer Handoff / Architecture
+
+This document is the portable "brain dump" of the project: what the mod does, how it's built, how
+every piece fits together, and what was planned but not yet done. It exists so the project can be
+picked up on a fresh machine without the original chat history. **Read this first.**
+
+---
+
+## 1. What the mod is
+
+**ViveInterface** is a client-only **Fabric 1.20.1** mod that requires **Vivecraft** (VR). It lets you
+**cut regions out of the flat VR HUD and place them as floating panels anywhere in VR** — on your arm,
+your head, or fixed in the world. Targets: Xaero's Minimap, JourneyMap, Cobblemon overlays, the
+vanilla hotbar — anything that draws to the HUD. The mod never touches those other mods.
+
+### The core insight that makes it possible
+
+Vivecraft already renders the **entire** flat 2D HUD into one off-screen framebuffer so it can show it
+as a floating screen in VR. That framebuffer is exposed as a **public static field**:
+
+```java
+org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler.GUI_FRAMEBUFFER   // a net.minecraft.class_276 (RenderTarget)
+```
+
+So the whole mod is essentially: **sample a UV sub-rectangle of that one texture and draw it on a
+world-space quad anchored to a VR body pose.** Because the framebuffer re-renders every frame, a
+minimap cut onto your wrist stays **live** for free. No per-mod adapters, and the core render path
+needs **no mixins** — just that public field plus Vivecraft's public `VRClientAPI` for poses/haptics.
+
+### The in-VR user flow
+
+1. Press **N** → a "menu" (the full HUD on a solid dark backing) spawns in front of you, and a wooden
+   sword appears on your dominant hand. Cut mode is **fully modal** — every other button is inert.
+2. Hold the **right trigger** and swipe the sword through the menu. The **whole blade** cuts wherever
+   it crosses, leaving a **green line** (in bounds) / **red line** (off the edge).
+3. When one stroke reaches **two edges** of the menu, that rectangular region **detaches and floats**
+   where you cut it. The menu stays.
+4. Reach your **off hand** into the floating piece (hand hitbox) → it grabs (the piece turns **green**
+   while your hand is colliding with it) and the menu disappears.
+5. While carrying: the **Change-hand** key (bind Quest **A**) moves the piece to the other hand.
+   **Either trigger** lets go. Releasing **near a hand or head glues it there** (it then follows that
+   body part while you walk); releasing elsewhere **drops it in the world**.
+6. Placed pieces **persist** to disk and reload on next join, re-sampling the live HUD.
+
+---
+
+## 2. Build environment (IMPORTANT for the new machine)
+
+| Thing | Value | Notes |
+|-------|-------|-------|
+| Minecraft | 1.20.1 | matches the Vivecraft build on disk |
+| Loader | Fabric Loader 0.15.11 | |
+| Fabric API | 0.92.2+1.20.1 | |
+| Mappings | **official Mojang** (`loom.officialMojangMappings()`) | so Vivecraft's `RenderTarget`/`Vec3`/`PoseStack` names line up |
+| **JDK** | **17** | **Gradle 8.12 crashes on JDK 25** ("class file major version 69"). `JAVA_HOME` must point at a JDK 17. |
+| Gradle | 8.12 (wrapper committed) | |
+| **Fabric Loom** | **1.9.2** | Loom 1.7 fails on Gradle 8.12 with `Problems.forNamespace`. Do not downgrade. |
+| Mod Menu | 7.2.2 (`maven.modrinth:modmenu`) | `modCompileOnly`, optional at runtime |
+| Gson | bundled by Minecraft | used for JSON config/persistence |
+
+### Vivecraft dependency (the non-obvious part)
+
+Vivecraft is **not on any Maven**. It's pulled from a **local production jar** that must sit next to
+the project folder:
+
+```
+gradle.properties:  vivecraft_jar=../vivecraft-1.20.1-1.3.6-fabric.jar
+build.gradle:       modCompileOnly files(vc)     // Loom remaps intermediary -> mojmap automatically
+```
+
+So on the new machine you must **also copy `vivecraft-1.20.1-1.3.6-fabric.jar`** and place it **one
+directory above** the `ViveInterface` folder (i.e. as a sibling). It's `modCompileOnly` because at
+runtime the user launches with the real Vivecraft mod installed.
+
+### To build
+
+```bash
+# from the ViveInterface folder, with JAVA_HOME set to a JDK 17:
+JAVA_HOME=".../jdk-17" ./gradlew build
+```
+
+Output: `build/libs/viveinterface-0.1.0.jar`. Drop it in `mods/` with Fabric API + Vivecraft (+ Mod
+Menu optional). On Windows/Git-Bash the exact incantation used during development was:
+
+```bash
+export JAVA_HOME="C:/Program Files/Java/jdk-17"
+./gradlew build --no-daemon
+```
+
+### What to copy to the new machine
+- The whole **`ViveInterface`** folder (source, gradle wrapper, `build.gradle`, `gradle.properties`).
+- The **`vivecraft-1.20.1-1.3.6-fabric.jar`** as a sibling of that folder.
+- Install **JDK 17**. The Gradle wrapper handles Gradle itself; Loom/Fabric/ModMenu download on first
+  build.
+
+> The project is currently **not a git repo**. Consider `git init` on the new machine.
+
+---
+
+## 3. Architecture — package by package
+
+Root package: `com.laggy.viveinterface`. Entry point: **`ViveInterfaceClient`** (`ClientModInitializer`).
+It **does nothing unless Vivecraft is loaded** (`FabricLoader.isModLoaded("vivecraft")`), to avoid
+classloading Vivecraft-referencing code when VR isn't present. It registers keybinds, the renderer,
+the HUD mask, loads config + saved panels, and drives a client-tick loop.
+
+### `vr/` — the Vivecraft bridge (public API only)
+- **`VrPoses`** — wraps `org.vivecraft.api.client.VRClientAPI`. `vrActive()`, and `head()/mainHand()/
+  offHand()` returning a `BodyPose(pos: Vec3, dir: Vec3, rot: Quaternionf)` from
+  `getWorldRenderPose()`. Also `haptic(mainHand, strength)`. **All null/inactive tolerant.** Vivecraft
+  has **no input/button API** — that constraint shapes everything in `cut/`.
+- **`VrTriggers`** — reads the VR controller triggers. Vivecraft maps them onto the vanilla ATTACK /
+  USE key bindings, so `cut()` reads ATTACK and `release()` reads USE (swappable via config). Reads
+  the **raw** key-down field via the accessor mixin (see below), because our own input gate makes the
+  normal `isDown()` getter lie during cut mode.
+
+### `render/` — drawing
+- **`GuiTexture`** — thin accessor for `GuiHandler.GUI_FRAMEBUFFER` (availability, color tex id, size).
+- **`GuiSnapshot`** — copies the HUD framebuffer into our **own GL texture** every frame
+  (`glCopyTexSubImage2D`, in the HUD callback while GUI_FRAMEBUFFER is bound). Panels sample this
+  snapshot, not the live framebuffer — see masking below.
+- **`HudMask`** — registered on Fabric's `HudRenderCallback`. Each frame: (1) `GuiSnapshot.capture()`,
+  then (2) **punch transparent holes** into `GUI_FRAMEBUFFER` over every placed panel's UV rect
+  (writes alpha 0 via `colorMask(false,false,false,true)` + `GuiGraphics.fill`). Result: the cut
+  region **vanishes from Vivecraft's flat panel** (no double render) while the world panels keep full
+  content from the snapshot. Wrapped in try/catch, logs failures.
+- **`PanelRenderer`** — the main draw, on `WorldRenderEvents.END`. Draws every placed panel (textured
+  quad sampling the snapshot sub-UV, with a V-flip because framebuffers are bottom-left origin),
+  a **green tint** on the panel the hand is touching, and in cut mode: the paper + dark backing, the
+  green/red sword trail, the sword item model, the selection stick item model, and the translucent
+  **hand-hitbox cube**. Sword/stick are real `Items.WOODEN_SWORD`/`Items.STICK` models via
+  `ItemRenderer.renderStatic` (toggleable → coloured-quad fallback), positioned by a configurable
+  `Placement`.
+
+### `panel/` — the data model
+- **`PanelAnchor`** — enum: `WORLD`, `MAIN_HAND`, `OFF_HAND`, `HEAD`.
+- **`Placement`** — a hand/head-relative transform: posX/Y/Z (metres), yaw/pitch/roll (degrees), and
+  scale. `rotation()` = `rotationYXZ`. Static tuned defaults `onHand()/held()/onHead()`. This mirrors
+  ViveTaCZ's ammo-HUD placement concept (see §6).
+- **`Panel`** — a placed slice: UV rect + anchor + transform + `scale`. WORLD anchors use
+  `worldPos/worldRot` (+ a `userOffset` nudge, 0,0,0 = where left); hand/head anchors use a
+  `Placement` applied on the live body pose (`fromBody`). `anchorToBody()` snaps to the configured
+  default placement; `dropToWorld()` bakes the current transform to a static WORLD anchor.
+- **`PanelManager`** — the session list of placed panels.
+- **`PanelHitbox`** — hand-sphere vs panel-oriented-box distance test. Used **only while grabbing** —
+  it is deliberately **not** a continuous physics sim. Once a panel is released its transform is baked
+  static, so nothing keeps running.
+- **`PanelStore`** — Gson save/load to `config/viveinterface/panels.json`. Panels reload on join and
+  re-sample the live HUD, so a glued minimap comes back live without re-cutting.
+
+### `cut/` — the cutting state machine
+- **`CutTool`** (singleton) — the heart. States: `OFF → ARMED → CUTTING → CUT_READY → HOLDING`.
+  - `tick()` reads the triggers, advances the machine.
+  - **Whole-blade cut**: `updateBladeCut()` intersects the sword **segment** (hand→tip) with the menu
+    plane; records a green/red trail point; tracks which of the 4 edges the stroke has reached; when
+    ≥2 edges are reached, `finalizeCut()` lifts the bounding-box region off the menu as a floating
+    WORLD panel.
+  - **Grab**: `tryGrab()` (in ARMED/CUT_READY) grabs whatever placed panel the **off-hand hitbox**
+    reaches into (`PanelHitbox.nearestTouched`). `touchedPanel()` powers the green tint.
+  - **Hold/release**: `doRelease()` glues near a hand/head (`glueIfNearBody`) or drops to world; fires
+    on **either trigger**. `changeHand()` swaps the carried piece between hands.
+  - Reads all geometry tunables from `ViveConfig`.
+- **`CutInputGate`** — policy: while cut mode is active, **suppress every vanilla binding** except
+  Vivecraft's own and ViveInterface's own keys (fully modal). Applied by the mixin.
+
+### `mixin/` — the only two mixins (both client, target `net.minecraft.client.KeyMapping`)
+- **`KeyMappingMixin`** — `@Inject` on `isDown` / `consumeClick`; when `CutInputGate.suppress()` says
+  so, returns false and drains the queued `clickCount`. This is how "every other VR button is inert in
+  cut mode" works, given Vivecraft has no input API.
+- **`KeyMappingAccessor`** — `@Accessor("isDown")` reads the **raw** key field, bypassing the gate, so
+  `VrTriggers` can still read the physical trigger state while the game itself sees the button as
+  inert.
+
+### `config/` and `gui/`
+- **`ViveConfig`** — global settings persisted to `config/viveinterface/settings.json`: `debugLogging`,
+  `swapTriggers`, `realModels`, cutting geometry (blade/stick length, grab/glue radii, menu
+  distance/width), and per-element `Placement`s (sword, stick, hand/head/held panel defaults). All
+  read live by CutTool/VrTriggers/PanelRenderer.
+- **`GlobalSettingsScreen`** — the config screen: toggles, +/- tunable rows, and buttons that open a
+  transform editor per element. Reached from Mod Menu's cog or the pieces screen's ⚙ button.
+- **`PlacementEditScreen`** — reusable −/+ editor for one `Placement` (X/Y/Z, Yaw/Pitch/Roll, Scale).
+- **`ViveInterfaceScreen`** — the per-piece editor (scale, position, rotation, anchor, delete),
+  opened with **K**.
+- **`ViveInterfaceModMenu`** — Mod Menu entry point → opens `GlobalSettingsScreen`.
+
+### `debug/`
+- **`DebugLog`** — toggle-gated logging (`log/logf/throttled/once`, `v(Vec3)`/`q(Quat)` formatters) to
+  the "ViveInterface" logger, plus `dumpState()` (a full live snapshot). Modelled on ViveTaCZ's
+  DebugLog/DebugState. Risky GL is wrapped in try/catch and always logs failures.
+
+---
+
+## 4. Controls (defaults; rebindable under Controls → ViveInterface)
+
+| Key | Action |
+|-----|--------|
+| **N** | Toggle cut mode |
+| Right trigger (ATTACK) | Hold to cut |
+| Off hand reaching in | Grab a piece (hitbox) |
+| Either trigger | Let go of the carried piece |
+| **G** (bind to Quest **A**) | Change hand (move piece to other hand) |
+| **M** | Release held piece (desktop fallback) |
+| **K** | Per-piece settings screen |
+| **J** | Dump debug state to log |
+| **L** | Toggle debug logging |
+
+Config files live in `config/viveinterface/`: `settings.json` (global) and `panels.json` (placed
+pieces).
+
+---
+
+## 5. Status & things that need in-headset tuning
+
+**Everything compiles and builds cleanly, but the mod has NEVER been tested in a headset.** The
+following are deterministic in code but are educated guesses on VR specifics — all isolated and, where
+possible, made tunable from the settings screen:
+
+1. **HUD masking assumptions** (`GuiSnapshot` + `HudMask`): assumes (a) the HUD callback runs while
+   `GUI_FRAMEBUFFER` is the bound read target (so the snapshot copies the right buffer), and (b)
+   Vivecraft's flat panel honours the alpha channel (so alpha-0 reads as a see-through hole, not
+   black). If (b) is false, change the punch to draw the world-background colour instead of clearing
+   alpha. Also, if a minimap mod draws in a *later* HUD callback, the mask could be overdrawn → move
+   the injection later.
+2. **Item-model orientation** (sword/stick): starting rotation is a guess but fully tunable in-menu
+   (Sword/Stick transform editors). Turn "Real item models" off for the coloured-quad fallback.
+3. **Trigger→hand mapping**: assumes right=ATTACK=cut, left=USE=release; "Swap triggers" toggle fixes
+   it. Release accepts either trigger as a safety net.
+4. **Default Placements** (where glued panels sit): un-tuned guesses; expect to dial offset/rotation
+   per anchor in the settings on first run.
+5. **V-flip / pose space**: framebuffer origin and world-vs-render pose may need a tweak; isolated in
+   `PanelRenderer` / `VrPoses`.
+6. **Change-hand key must be bound to A** in Vivecraft's controls the first time (can't auto-detect).
+
+---
+
+## 6. Relationship to ViveTaCZ (design lineage — important)
+
+The hand-follow approach and the debug system are **modelled on the author's other mod, ViveTaCZ**
+(at `Coding shit/Intellij IDEA/ViveTacZ Refabricated`), specifically its **ammo HUD**:
+- `client/VrRenderUtil.applyPlacement` (rotate yaw/pitch/roll → translate → scale on the controller
+  matrix) → inspired ViveInterface's `Placement`.
+- `config/Placement` (posX/Y/Z + rot + scale, tuned defaults) → same idea.
+- `debug/DebugState` + `DebugLog` → same idea for ViveInterface's `DebugLog`.
+
+**License note:** ViveTaCZ is **GPL-3.0**; ViveInterface is **MIT**. The ideas were re-implemented from
+scratch — **do not copy ViveTaCZ source into ViveInterface.**
+
+The key steer that produced the current design: *"make it like ViveTaCZ's ammo HUD because it follows
+the VR hand"* → instead of a physics/collision push-out, panels glued to a hand ride a fixed
+`Placement` (so they never clip through the hand), and hand-hitbox tests run **only during grabbing**,
+with the result baked to a static transform. No always-on physics.
+
+---
+
+## 7. What was planned / TODO (roughly in priority order)
+
+- **In-headset test pass**, then tune the items in §5 (this is the real next step).
+- **More body anchors**: elbows / waist, so panels can be pinned along the arm. Small extension of
+  `PanelAnchor` + `Placement` + `VrPoses` (VRBodyPart already exposes RIGHT_ELBOW/WAIST/etc.).
+- **Gate grab behind the grab trigger** if touch-to-grab proves too eager in-headset (currently
+  reaching a hand into a panel grabs immediately).
+- **Read the Quest A button raw** (like the triggers) as an alternative to the bindable keymapping, if
+  a fixed mapping can be identified.
+- Possibly **default-placement presets** per HUD source (Xaero vs JourneyMap vs Cobblemon).
+- Nice-to-have: an in-VR nudge gesture so placements can be tuned without opening a 2D screen.
+
+---
+
+## 8. Persistent project memory (old machine only)
+
+On the development machine there is a Claude "project memory" file summarising all of the above at
+`~/.claude/projects/.../memory/viveinterface-project.md`. That won't transfer automatically — **this
+HANDOFF.md is the portable version.** If continuing with an AI assistant on the new machine, point it
+at this file first.
