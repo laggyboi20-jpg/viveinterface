@@ -8,7 +8,6 @@ import com.laggy.viveinterface.render.GuiTexture;
 import com.laggy.viveinterface.vr.VrPoses;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Quaternionf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,10 +85,6 @@ public final class DebugLog {
 
     public static String v(Vec3 p) {
         return p == null ? "<null>" : String.format("(%.3f, %.3f, %.3f)", p.x, p.y, p.z);
-    }
-
-    public static String q(Quaternionf r) {
-        return r == null ? "<null>" : String.format("(%.2f, %.2f, %.2f, %.2f)", r.x, r.y, r.z, r.w);
     }
 
     /** Full live-state snapshot — the "don't guess" button. */

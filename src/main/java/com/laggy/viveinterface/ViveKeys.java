@@ -28,8 +28,6 @@ public final class ViveKeys {
     public static KeyMapping grabMainHand;
     /** Grab with the OFF hand — bind to a left-controller grip. Unbound. */
     public static KeyMapping grabOffHand;
-    /** Leave placement mode without reaching for the keyboard — bind to any face button. Unbound. */
-    public static KeyMapping exitPlacement;
 
     private ViveKeys() {}
 
@@ -37,7 +35,6 @@ public final class ViveKeys {
         toggleCut = reg("key.viveinterface.toggle_cut", GLFW.GLFW_KEY_N);
         grabMainHand = reg("key.viveinterface.grab_main", InputConstants.UNKNOWN.getValue());
         grabOffHand = reg("key.viveinterface.grab_off", InputConstants.UNKNOWN.getValue());
-        exitPlacement = reg("key.viveinterface.exit_placement", InputConstants.UNKNOWN.getValue());
     }
 
     /**

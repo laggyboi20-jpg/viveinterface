@@ -12,8 +12,9 @@ import org.joml.Vector3f;
  * <ul>
  *   <li>{@link PanelAnchor#WORLD}: fixed at {@link #worldPos}/{@link #worldRot}, nudged by
  *       {@link #userOffset} (0,0,0 = where it was left).</li>
- *   <li>Hand/head anchors: follow the live body pose via a {@link Placement} (offset + rotation),
- *       so the panel rides the hand like a VR item HUD and never clips through it.</li>
+ *   <li>Hand/head anchors: follow the live body pose via {@link #relPos}/{@link #relRot}, so the
+ *       panel rides the body part exactly as it was placed.</li>
+ *   <li>{@link PanelAnchor#PANEL}: rides another piece, so a cluster moves as one.</li>
  * </ul>
  */
 public final class Panel {
@@ -29,7 +30,7 @@ public final class Panel {
     /** WORLD position nudge in the panel's local frame (settings screen). 0 = as left. */
     public final Vector3f userOffset = new Vector3f();
 
-    /** Hand/head offset + rotation. */
+    /** Legacy euler offset, kept only so older {@code panels.json} files still load. */
     public Placement place = new Placement();
 
     /** Base physical width in metres (height derived from UV aspect); multiplied by {@link #scale}. */
@@ -136,21 +137,6 @@ public final class Panel {
         Vec3 p = body.pos();
         Vector3f pos = new Vector3f((float) p.x + off.x, (float) p.y + off.y, (float) p.z + off.z);
         return new Resolved(pos, rot);
-    }
-
-    /** Snap to a hand/head anchor with the configured default placement (ammo-HUD style — no clipping). */
-    public void anchorToBody(PanelAnchor bodyAnchor) {
-        this.anchor = bodyAnchor;
-        com.laggy.viveinterface.config.ViveConfig cfg = com.laggy.viveinterface.config.ViveConfig.get();
-        Placement def = switch (bodyAnchor) {
-            case MAIN_HAND -> cfg.handPanelPlace;
-            case OFF_HAND -> cfg.heldPanelPlace;
-            case HEAD -> cfg.headPanelPlace;
-            default -> new Placement();
-        };
-        this.place = def.copy();
-        this.scale = def.scale;   // configurable default size for this anchor
-        applyPlacement();
     }
 
     /** Bake {@link #place} (the configured euler preset) into {@link #relPos}/{@link #relRot}. */

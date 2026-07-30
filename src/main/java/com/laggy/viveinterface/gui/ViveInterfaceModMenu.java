@@ -5,7 +5,6 @@ import com.laggy.viveinterface.debug.DebugLog;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
-import com.laggy.viveinterface.panel.Placement;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
@@ -20,9 +19,8 @@ import java.util.List;
 
 /**
  * Mod Menu → ViveInterface config screen, built with Cloth Config (matching the sibling
- * ViveMonkeCraft mod's settings style). This is where ALL of the mod's controls live — the only
- * in-game keybind left is <b>N</b> (toggle cut mode), because cut mode is fully modal in VR and you
- * can't open a 2D menu to get out of it.
+ * ViveMonkeCraft mod's settings style). This is where the mod's tunables live; in-game there is only
+ * the <b>N</b> key (open the cut screen) plus the optional grab keys.
  *
  * <p>Optional at runtime: if Mod Menu / Cloth Config aren't installed, the factory returns no screen
  * (the mod still runs, you just edit {@code config/viveinterface/settings.json} by hand). Each row
@@ -69,8 +67,9 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         general.addEntry(eb.startTextDescription(Component.literal(
                 "§7Press §fN§7 in-game to open the cut screen (Vivecraft shows it as the flat pointer "
                         + "panel). §fDrag a box§7 over the HUD with the pointer and press §fCut§7 to lift "
-                        + "that region out as a floating panel. §fX / Done / Esc§7 closes it. Sizes and "
-                        + "placements are tuned right here."))
+                        + "that region out as a floating panel. §fX / Done / Esc§7 closes it.\n"
+                        + "§7In VR, reach a hand into a piece and squeeze to move it; let go on your other "
+                        + "hand or head to stick it there, or against a wall to lay it flat."))
                 .build());
 
         general.addEntry(eb.startAlphaColorField(Component.literal("Piece background"), c.backgroundColor)
@@ -81,7 +80,7 @@ public class ViveInterfaceModMenu implements ModMenuApi {
                                 + "see-through like before."))
                 .setSaveConsumer(v -> c.backgroundColor = v).build());
 
-        general.addEntry(eb.startBooleanToggle(Component.literal("Swap cut / release triggers"), c.swapTriggers)
+        general.addEntry(eb.startBooleanToggle(Component.literal("Swap grab / release triggers"), c.swapTriggers)
                 .setDefaultValue(false)
                 .setTooltip(Component.literal("Flip this if your Vivecraft binds the release trigger to the "
                         + "other hand (used when carrying a placed piece)."))
@@ -89,12 +88,12 @@ public class ViveInterfaceModMenu implements ModMenuApi {
 
         general.addEntry(eb.startBooleanToggle(Component.literal("Debug logging"), c.debugLogging)
                 .setDefaultValue(true)
-                .setTooltip(Component.literal("Log cut / grab / release / snapshot / mask events to the game log "
-                        + "under the 'ViveInterface' logger."))
+                .setTooltip(Component.literal("Log cut / grab / release / snapshot / mask events to logs/viveinterface.log "
+                        + "and the game log."))
                 .setSaveConsumer(v -> c.debugLogging = v).build());
 
         // ============================ CUTTING GEOMETRY ============================
-        ConfigCategory geo = builder.getOrCreateCategory(Component.literal("Cutting geometry"));
+        ConfigCategory geo = builder.getOrCreateCategory(Component.literal("Pieces & placement"));
 
         geo.addEntry(floatField(eb, "Placed-piece distance (m)", c.paperDistance, 0.1f, 3.0f,
                 "How far in front of you a freshly-cut piece is placed.",
@@ -115,17 +114,11 @@ public class ViveInterfaceModMenu implements ModMenuApi {
                 "Gap kept between a piece and whatever it rests on — a block face, or your arm.",
                 v -> c.surfaceClearance = v));
         geo.addEntry(floatField(eb, "Grab radius (m)", c.grabRadius, 0.01f, 0.5f,
-                "Size of the off-hand grab sphere (used when repositioning a placed piece).",
+                "Size of the hand grab sphere — how close a hand must be to pick a piece up.",
                 v -> c.grabRadius = v));
         geo.addEntry(floatField(eb, "Glue radius (m)", c.glueRadius, 0.01f, 1.0f,
                 "How close to a hand/head you must release a piece for it to glue there.",
                 v -> c.glueRadius = v));
-
-        // ============================ TRANSFORM PAGES ============================
-        // Where a piece sits once it's glued to a hand/head or carried (X/Y/Z + yaw/pitch/roll + scale).
-        addPlacementCategory(builder, eb, "Hand panel default", c.handPanelPlace);
-        addPlacementCategory(builder, eb, "Head panel default", c.headPanelPlace);
-        addPlacementCategory(builder, eb, "Held piece default", c.heldPanelPlace);
 
         // ============================= PLACED PIECES =============================
         ConfigCategory pieces = builder.getOrCreateCategory(Component.literal("Placed pieces"));
@@ -154,26 +147,6 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         }
 
         return builder.build();
-    }
-
-    /** Add a 7-row page (X/Y/Z metres + yaw/pitch/roll degrees + scale) that edits a {@link Placement} live. */
-    private static void addPlacementCategory(ConfigBuilder builder, ConfigEntryBuilder eb,
-                                             String name, Placement pl) {
-        ConfigCategory cat = builder.getOrCreateCategory(Component.literal(name));
-        cat.addEntry(floatField(eb, "Offset X (m)", pl.posX, -2f, 2f,
-                "Left/right offset from the controller (in the rotated frame).", v -> pl.posX = v));
-        cat.addEntry(floatField(eb, "Offset Y (m)", pl.posY, -2f, 2f,
-                "Up/down offset from the controller.", v -> pl.posY = v));
-        cat.addEntry(floatField(eb, "Offset Z (m)", pl.posZ, -2f, 2f,
-                "Forward/back offset from the controller.", v -> pl.posZ = v));
-        cat.addEntry(floatField(eb, "Yaw (°)", pl.yaw, -360f, 360f,
-                "Rotation around the vertical axis.", v -> pl.yaw = v));
-        cat.addEntry(floatField(eb, "Pitch (°)", pl.pitch, -360f, 360f,
-                "Tilt up/down.", v -> pl.pitch = v));
-        cat.addEntry(floatField(eb, "Roll (°)", pl.roll, -360f, 360f,
-                "Bank left/right.", v -> pl.roll = v));
-        cat.addEntry(floatField(eb, "Scale", pl.scale, 0.01f, 3f,
-                "Size multiplier for this element.", v -> pl.scale = v));
     }
 
     /** A double field that reads/writes a {@code float} config value (Cloth only has double/int fields). */

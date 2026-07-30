@@ -7,11 +7,11 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
 /**
- * Reads the VR controller triggers. Vivecraft maps them onto the vanilla ATTACK / USE key bindings,
- * so we read those — via {@link KeyMappingAccessor} so our own input gate doesn't hide them.
+ * Reads the VR controller triggers. Vivecraft maps them onto the vanilla ATTACK / USE key bindings, so
+ * we read those — via {@link KeyMappingAccessor} so our own input gate doesn't hide them.
  *
- * <p>Assumes the dominant (sword) hand trigger = ATTACK and the off hand trigger = USE. If your
- * Vivecraft bindings are swapped, flip the two keys below.
+ * <p>Assumes the dominant hand trigger = ATTACK and the off hand trigger = USE; the "swap triggers"
+ * setting flips them. Prefer binding a dedicated grab key ({@link ViveKeys}) — see {@link #release()}.
  */
 public final class VrTriggers {
 

@@ -2,6 +2,5 @@
   "category.viveinterface": "ViveInterface",
   "key.viveinterface.toggle_cut": "Open cut screen",
   "key.viveinterface.grab_main": "Grab with main hand (bind to right grip)",
-  "key.viveinterface.grab_off": "Grab with off hand (bind to left grip)",
-  "key.viveinterface.exit_placement": "Leave placement mode (unused)"
+  "key.viveinterface.grab_off": "Grab with off hand (bind to left grip)"
 }

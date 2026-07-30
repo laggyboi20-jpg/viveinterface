@@ -6,8 +6,8 @@ import org.joml.Vector3f;
  * Cheap hand-vs-panel collision, used only while a panel is being reached for / carried — NOT a
  * continuous physics sim. A panel is a thin oriented box (its quad + a little thickness); a hand is a
  * sphere. We test the sphere against the box each frame only for the few placed panels, and once the
- * panel is released its transform is baked to a static {@link Placement} (see Panel.anchorToBody /
- * dropToWorld), so nothing keeps running afterwards.
+ * panel is released its transform is baked to a static one (see Panel.attachToBody / dropToWorld),
+ * so nothing keeps running afterwards.
  */
 public final class PanelHitbox {
 
@@ -31,11 +31,6 @@ public final class PanelHitbox {
         // Vector from the closest point on the box to the hand, in box-local axes.
         float ou = du - clamp(du, hw), ov = dv - clamp(dv, hh), on = dn - clamp(dn, THICKNESS);
         return (float) Math.sqrt(ou * ou + ov * ov + on * on);
-    }
-
-    /** True if a hand sphere of {@code radius} overlaps the panel's box. */
-    public static boolean touches(Panel p, Vector3f hand, float radius) {
-        return distance(p, hand) <= radius;
     }
 
     /** The placed panel whose box the hand sphere overlaps, nearest first; null if none touched. */

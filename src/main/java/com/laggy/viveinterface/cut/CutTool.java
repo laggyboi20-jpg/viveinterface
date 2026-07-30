@@ -35,8 +35,7 @@ import org.joml.Vector3f;
  *       re-grab it.)</li>
  * </ul>
  *
- * <p>{@link PlacementMode} is now optional: it locks movement and shows the anchor volumes, which is
- * handy for careful placement, but the same gestures work without it.
+ * <p>{@link PlacementMode} is kept for testing and future ports but has no in-game entry point.
  */
 public final class CutTool {
 
@@ -55,7 +54,6 @@ public final class CutTool {
     public State state() { return held != null ? State.HOLDING : State.OFF; }
     /** True while a piece is being carried — suppresses vanilla bindings so you don't mine/punch. */
     public boolean active() { return held != null; }
-    public Panel heldPanel() { return held; }
 
     /** True while placement mode is on: movement is locked and body-sticking is enabled. */
     public static boolean placementMode() {
