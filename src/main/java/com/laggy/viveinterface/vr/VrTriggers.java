@@ -1,6 +1,7 @@
 package com.laggy.viveinterface.vr;
 
 import com.laggy.viveinterface.config.ViveConfig;
+import com.laggy.viveinterface.ViveKeys;
 import com.laggy.viveinterface.mixin.KeyMappingAccessor;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -22,8 +23,17 @@ public final class VrTriggers {
         return raw(ViveConfig.get().swapTriggers ? opt.keyUse : opt.keyAttack);
     }
 
-    /** Off/left-hand trigger — lets go of the held slice (USE, or ATTACK if swapped). */
+    /**
+     * Off-hand grab button.
+     *
+     * <p>Vivecraft binds the left controller trigger to teleport / walk-forward, so vanilla USE never
+     * actually goes down for the off hand — which is why off-hand grabbing never fired. If the mod's
+     * own {@link ViveKeys#grabOffHand} binding has been pointed at a left-controller button (X / Y /
+     * grip) in Vivecraft's controls, use that; otherwise fall back to the vanilla USE key so desktop
+     * and any setup that does map it still work.
+     */
     public static boolean release() {
+        if (ViveKeys.isBound(ViveKeys.grabOffHand)) return ViveKeys.rawDown(ViveKeys.grabOffHand);
         var opt = Minecraft.getInstance().options;
         return raw(ViveConfig.get().swapTriggers ? opt.keyAttack : opt.keyUse);
     }

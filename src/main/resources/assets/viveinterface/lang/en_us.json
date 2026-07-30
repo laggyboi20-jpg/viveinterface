@@ -1,4 +1,6 @@
 {
   "category.viveinterface": "ViveInterface",
-  "key.viveinterface.toggle_cut": "Toggle cut mode (menu + sword)"
+  "key.viveinterface.toggle_cut": "Open cut screen / leave placement mode",
+  "key.viveinterface.grab_off": "Grab with off hand (bind to a left-controller button)",
+  "key.viveinterface.exit_placement": "Leave placement mode (bind to a face button)"
 }

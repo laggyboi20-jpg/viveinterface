@@ -1,5 +1,6 @@
 package com.laggy.viveinterface.render;
 
+import com.laggy.viveinterface.ViveKeys;
 import com.laggy.viveinterface.cut.PlacementMode;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelAnchor;
@@ -34,7 +35,7 @@ public final class PlacementHud {
         int w = mc.getWindow().getGuiScaledWidth();
         int cx = w / 2;
 
-        int boxW = 320, boxH = 74, bx = cx - boxW / 2, by = 6;
+        int boxW = 340, boxH = 84, bx = cx - boxW / 2, by = 6;
         g.fill(bx, by, bx + boxW, by + boxH, 0xB0101018);
         g.renderOutline(bx, by, boxW, boxH, 0xFF55FF88);
 
@@ -46,8 +47,13 @@ public final class PlacementHud {
                 Component.literal("§7Hold the §fright trigger§7 to grab and move it"), cx, by + 31, 0xCCCCCC);
         g.drawCenteredString(mc.font,
                 Component.literal("§7Let go on a §fcyan hand§7 or the §eyellow head§7 box to stick it"), cx, by + 43, 0xCCCCCC);
+        boolean offBound = ViveKeys.isBound(ViveKeys.grabOffHand);
+        g.drawCenteredString(mc.font, Component.literal(offBound
+                        ? "§7Off hand grabs with your bound §fgrab-off-hand§7 button"
+                        : "§8Off hand: bind \"Grab with off hand\" in Controls to a left button"),
+                cx, by + 55, offBound ? 0xCCCCCC : 0x888888);
         g.drawCenteredString(mc.font,
-                Component.literal("§ePress N to finish §8— pieces stay where they are"), cx, by + 57, 0xFFFF88);
+                Component.literal("§ePress N §8(or your bound exit button)§e to finish"), cx, by + 67, 0xFFFF88);
 
         // Where each piece currently lives, so you can tell what stuck and what didn't.
         List<Panel> all = PanelManager.all();
