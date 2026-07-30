@@ -51,6 +51,13 @@ public final class CutTool {
     private boolean heldByMainTrigger;  // which trigger started the grab (released on that one)
     private boolean prevMain, prevOff;  // trigger edge detection
 
+    // Where the carried piece was taken FROM, and whether it has been carried clear of it yet.
+    // Taking a piece off your off hand puts your main hand right next to that hand, so without this
+    // the piece would snap straight back on release — the "it keeps sticking to the other hand" loop.
+    private PanelAnchor detachedFromAnchor;
+    private java.util.UUID detachedFromParent;
+    private boolean carriedClear;
+
     public State state() { return held != null ? State.HOLDING : State.OFF; }
     /** True while a piece is being carried — suppresses vanilla bindings so you don't mine/punch. */
     public boolean active() { return held != null; }
@@ -166,6 +173,7 @@ public final class CutTool {
         boolean offDown = dedicated && ViveKeys.rawDown(ViveKeys.grabOffHand);
 
         if (held != null) {
+            updateDetachClearance();
             boolean stillHeld = heldByMainTrigger ? mainDown : offDown;
             if (!stillHeld) doRelease();
         } else {
@@ -202,6 +210,12 @@ public final class CutTool {
         }
         if (target == null || pose == null) return;
 
+        // Remember what it was attached to before the grab, so releasing right next to that thing
+        // doesn't immediately put it back (see updateDetachClearance / glueIfNearBody).
+        detachedFromAnchor = (target.anchor == PanelAnchor.WORLD) ? null : target.anchor;
+        detachedFromParent = target.parentId;
+        carriedClear = (detachedFromAnchor == null);
+
         target.attachToBody(hand, pose);
         held = target;
         heldHand = hand;
@@ -213,6 +227,52 @@ public final class CutTool {
 
     private static VrPoses.BodyPose poseOf(PanelAnchor hand) {
         return hand == PanelAnchor.MAIN_HAND ? VrPoses.mainHand() : VrPoses.offHand();
+    }
+
+    /**
+     * Once the carried piece has been moved a clear margin away from whatever it was detached from,
+     * drop the "don't re-stick" block — so bringing it deliberately back does stick again. Distance is
+     * a better signal than a timer here: no arbitrary wait, and it clears exactly when you've pulled
+     * the piece away.
+     */
+    private void updateDetachClearance() {
+        if (carriedClear || held == null || detachedFromAnchor == null) return;
+        Panel.Resolved r = held.resolve();
+        if (r == null) return;
+        float margin = ViveConfig.get().glueRadius * 1.6f;
+
+        if (detachedFromAnchor == PanelAnchor.PANEL) {
+            Panel parent = PanelManager.byId(detachedFromParent);
+            Panel.Resolved pr = (parent == null) ? null : parent.resolve();
+            if (pr == null) { carriedClear = true; return; }   // parent gone — nothing to avoid
+            if (r.pos().distance(pr.pos()) > margin) {
+                carriedClear = true;
+                DebugLog.log("GRAB", "carried clear of the piece it came off — it can stick again");
+            }
+            return;
+        }
+
+        VrPoses.BodyPose src = bodyPose(detachedFromAnchor);
+        if (src == null) { carriedClear = true; return; }
+        if (dist(src.pos(), r.pos()) > margin) {
+            carriedClear = true;
+            DebugLog.logf("GRAB", "carried clear of %s — it can stick again", detachedFromAnchor);
+        }
+    }
+
+    private static VrPoses.BodyPose bodyPose(PanelAnchor a) {
+        return switch (a) {
+            case MAIN_HAND -> VrPoses.mainHand();
+            case OFF_HAND -> VrPoses.offHand();
+            case HEAD -> VrPoses.head();
+            default -> null;
+        };
+    }
+
+    private void clearDetachState() {
+        detachedFromAnchor = null;
+        detachedFromParent = null;
+        carriedClear = true;
     }
 
     /** Is either hand inside the in-world Done button's box? */
@@ -233,7 +293,7 @@ public final class CutTool {
     private void doRelease() {
         Panel p = held;
         held = null;
-        if (p == null) return;
+        if (p == null) { clearDetachState(); return; }
 
         // Sticking works during normal play, not just in placement mode: carry a piece to your other
         // hand (or head) and let go and it sticks there; take it off again with the other hand and drop
@@ -241,6 +301,7 @@ public final class CutTool {
         Panel.Resolved r = p.resolve();
         if (r != null && glueIfNearBody(p, r)) {
             PanelStore.save();
+            clearDetachState();
             return;
         }
         // Released against a wall/floor? Lay it flat on that face instead of leaving it buried in the
@@ -248,11 +309,13 @@ public final class CutTool {
         if (r != null && SurfaceSnap.snapToBlock(p, r.pos(), r.rot())) {
             PanelStore.save();
             VrPoses.haptic(heldHand == PanelAnchor.MAIN_HAND, 0.6f);
+            clearDetachState();
             return;
         }
         p.dropToWorld();               // stays exactly where it was released
         PanelStore.save();
         DebugLog.log("RELEASE", "dropped to WORLD");
+        clearDetachState();
         VrPoses.haptic(heldHand == PanelAnchor.MAIN_HAND, 0.4f);
     }
 
@@ -264,13 +327,14 @@ public final class CutTool {
         float glue = ViveConfig.get().glueRadius;
         PanelAnchor other = (heldHand == PanelAnchor.MAIN_HAND) ? PanelAnchor.OFF_HAND : PanelAnchor.MAIN_HAND;
         VrPoses.BodyPose otherHand = (other == PanelAnchor.MAIN_HAND) ? VrPoses.mainHand() : VrPoses.offHand();
+        if (blocked(other)) otherHand = null;   // just taken off this hand and not carried clear yet
         if (otherHand != null && dist(otherHand.pos(), r.pos()) <= glue) {
             p.attachToBody(other, otherHand);
             DebugLog.logf("RELEASE", "stuck to %s", other);
             VrPoses.haptic(other == PanelAnchor.MAIN_HAND, 0.9f);
             return true;
         }
-        VrPoses.BodyPose head = VrPoses.head();
+        VrPoses.BodyPose head = blocked(PanelAnchor.HEAD) ? null : VrPoses.head();
         if (head != null && dist(head.pos(), r.pos()) <= glue) {
             p.attachToBody(PanelAnchor.HEAD, head);
             DebugLog.log("RELEASE", "stuck to HEAD");
@@ -290,12 +354,19 @@ public final class CutTool {
         return false;
     }
 
+    /** True while the piece must not re-attach to what it was just taken off. */
+    private boolean blocked(PanelAnchor a) {
+        return !carriedClear && detachedFromAnchor == a;
+    }
+
     /** The nearest other piece overlapping {@code p}'s current position that it may attach to. */
-    private static Panel nearestPanel(Panel p, Panel.Resolved r) {
+    private Panel nearestPanel(Panel p, Panel.Resolved r) {
         Panel best = null;
         float bestDist = ViveConfig.get().glueRadius;
         for (Panel other : PanelManager.all()) {
             if (other == p || p.wouldCycle(other)) continue;   // never build a loop of pieces
+            // Same rule for pieces: don't snap straight back onto the piece it was just pulled off.
+            if (!carriedClear && other.id.equals(detachedFromParent)) continue;
             float d = PanelHitbox.distance(other, r.pos());
             if (d <= bestDist) { bestDist = d; best = other; }
         }
