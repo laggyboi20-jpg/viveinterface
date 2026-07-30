@@ -37,6 +37,23 @@ to see and easy to get stuck in.)
 Placed pieces keep re-sampling the live HUD, so a minimap you cut stays **live**. Resize or delete
 them from **Mod Menu → ViveInterface → Placed pieces**.
 
+### Moving pieces in VR (no mode needed)
+
+Reach a hand into a placed piece — it tints **green** — and squeeze that hand's trigger to grab it.
+Let go and it stays where you released it; let go **touching your other hand or your head** and it
+sticks to that body part, following you as you walk. Reach across with the *other* hand to take a
+stuck piece back off. (A piece ignores the hand it's already sitting on, so squeezing the trigger to
+mine never re-grabs it.)
+
+Pressing **Done** on the cut screen opens the optional **placement mode**: it locks movement and
+draws the anchor volumes (cyan hands, yellow head) so you can place pieces carefully without walking
+around. Touch the green **DONE** box and squeeze to leave. The same gestures work outside it.
+
+> **VR buttons:** Vivecraft translates controller buttons into its own SteamVR input actions, so a
+> modded key binding can't be put on a face button — only the triggers/grips arrive as vanilla keys.
+> That's why placement mode exits via a box you touch rather than a keybind. "Grab with off hand" is
+> a bindable key if a grip works better for you than the trigger.
+
 **N** is the mod's only keybind (rebindable under **Controls → ViveInterface**). Everything else
 (cutting is the screen; all tuning is in **Mod Menu → ViveInterface**, a Cloth Config screen).
 

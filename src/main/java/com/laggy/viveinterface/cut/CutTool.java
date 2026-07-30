@@ -19,16 +19,22 @@ import org.joml.Vector3f;
  * Placing and handling cut pieces.
  *
  * <p><b>Cutting</b> happens on the flat {@link com.laggy.viveinterface.gui.CutScreen} (drag a box,
- * press Cut → {@link #placeFromUv}). This class owns what happens to a piece afterwards, in VR:
+ * press Cut → {@link #placeFromUv}). This class owns what happens to a piece afterwards, and it all
+ * works during normal play — no mode to enter:
  *
  * <ul>
  *   <li>Reach a hand into a placed piece — it tints <b>green</b> (grabbable).</li>
  *   <li>Squeeze that hand's trigger to <b>grab</b> it; the piece keeps its exact orientation and
- *       rides the hand (right trigger = right/main hand, left trigger = left/off hand).</li>
- *   <li>Let go of the trigger to <b>drop</b> it: it stays exactly where you released it. Release it
- *       close to your <b>other hand or head</b> and it sticks to that body part instead, following you
- *       as you walk.</li>
+ *       rides the hand.</li>
+ *   <li>Let go and it stays exactly where you released it. Let go <b>touching your other hand or your
+ *       head</b> and it sticks there, following you as you walk.</li>
+ *   <li>Reach across with the <b>other</b> hand to take a stuck piece back off and drop it anywhere.
+ *       (A piece never responds to the hand it's sitting on — otherwise every trigger squeeze would
+ *       re-grab it.)</li>
  * </ul>
+ *
+ * <p>{@link PlacementMode} is now optional: it locks movement and shows the anchor volumes, which is
+ * handy for careful placement, but the same gestures work without it.
  */
 public final class CutTool {
 
@@ -55,25 +61,30 @@ public final class CutTool {
     }
 
     /**
-     * The placed panel a hand is reaching into — drives the green tint. Only highlighted in placement
-     * mode: outside it, a piece riding your hand shouldn't glow while you're just playing.
+     * The placed panel a hand is reaching into — drives the green tint. Shown whenever a piece is
+     * actually grabbable, which (see {@link #nearestTo}) never includes a piece resting on the very
+     * hand doing the reaching, so a piece stuck to your hand doesn't sit there glowing as you play.
      */
     public Panel touchedPanel() {
-        if (!VrPoses.vrActive() || !placementMode()) return null;
+        if (!VrPoses.vrActive()) return null;
         if (held != null) return held;
-        Panel p = nearestTo(VrPoses.mainHand());
-        return p != null ? p : nearestTo(VrPoses.offHand());
+        Panel p = nearestTo(VrPoses.mainHand(), PanelAnchor.MAIN_HAND);
+        return p != null ? p : nearestTo(VrPoses.offHand(), PanelAnchor.OFF_HAND);
     }
 
-    private static Panel nearestTo(VrPoses.BodyPose hand) {
+    /**
+     * Nearest grabbable piece for one hand.
+     *
+     * <p>A piece anchored to <i>this</i> hand is skipped: it sits exactly at the hand, so it would be
+     * re-grabbed on every trigger squeeze (and grabbing suppresses mining). Reach across with the other
+     * hand to take it off — which is also the natural gesture for it.
+     */
+    private static Panel nearestTo(VrPoses.BodyPose hand, PanelAnchor handAnchor) {
         if (hand == null) return null;
         Vec3 hp = hand.pos();
-        // Outside placement mode only WORLD pieces are grabbable. A piece stuck to a hand sits right at
-        // that hand, so it would otherwise be re-grabbed every time you squeezed the trigger to mine.
-        List<Panel> candidates = PanelManager.all();
-        if (!placementMode()) {
-            candidates = candidates.stream().filter(p -> p.anchor == PanelAnchor.WORLD).toList();
-        }
+        List<Panel> candidates = PanelManager.all().stream()
+                .filter(p -> p.anchor != handAnchor)
+                .toList();
         return PanelHitbox.nearestTouched(candidates,
                 new Vector3f((float) hp.x, (float) hp.y, (float) hp.z), ViveConfig.get().grabRadius);
     }
@@ -175,11 +186,11 @@ public final class CutTool {
 
         PanelAnchor hand = first;
         VrPoses.BodyPose pose = poseOf(first);
-        Panel target = nearestTo(pose);
+        Panel target = nearestTo(pose, first);
         if (target == null) {
             hand = second;
             pose = poseOf(second);
-            target = nearestTo(pose);
+            target = nearestTo(pose, second);
         }
         if (target == null || pose == null) return;
 
@@ -216,10 +227,11 @@ public final class CutTool {
         held = null;
         if (p == null) return;
 
-        // Sticking to a body part only happens in placement mode. Outside it, grabbing is purely for
-        // nudging a piece around the world, so a release always leaves it in the world.
+        // Sticking works during normal play, not just in placement mode: carry a piece to your other
+        // hand (or head) and let go and it sticks there; take it off again with the other hand and drop
+        // it wherever you like. Placement mode is now just a calmer way to do the same thing.
         Panel.Resolved r = p.resolve();
-        if (placementMode() && r != null && glueIfNearBody(p, r)) {
+        if (r != null && glueIfNearBody(p, r)) {
             PanelStore.save();
             return;
         }
