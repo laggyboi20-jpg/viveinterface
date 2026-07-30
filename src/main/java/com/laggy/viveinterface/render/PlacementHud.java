@@ -53,7 +53,7 @@ public final class PlacementHud {
                         : "§8Off hand: bind \"Grab with off hand\" in Controls to a left button"),
                 cx, by + 55, offBound ? 0xCCCCCC : 0x888888);
         g.drawCenteredString(mc.font,
-                Component.literal("§ePress N §8(or your bound exit button)§e to finish"), cx, by + 67, 0xFFFF88);
+                Component.literal("§eTouch the green DONE box below you + squeeze to finish"), cx, by + 67, 0xFFFF88);
 
         // Where each piece currently lives, so you can tell what stuck and what didn't.
         List<Panel> all = PanelManager.all();

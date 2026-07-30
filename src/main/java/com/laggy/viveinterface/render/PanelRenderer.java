@@ -85,19 +85,30 @@ public final class PanelRenderer {
         marker(base, cam, VrPoses.mainHand(), glue, 0.3f, 0.9f, 1f);
         marker(base, cam, VrPoses.offHand(), glue, 0.3f, 0.9f, 1f);
         marker(base, cam, VrPoses.head(), glue, 1f, 0.9f, 0.25f);
+
+        // The Done button — touch it with a hand and squeeze to leave placement mode.
+        org.joml.Vector3f done = PlacementMode.donePos();
+        if (done != null) {
+            box(base, cam, done.x, done.y, done.z, PlacementMode.DONE_HALF, 0.2f, 1f, 0.35f, 0.55f);
+        }
     }
 
     private static void marker(Matrix4f base, Vec3 cam, VrPoses.BodyPose pose, float h,
                                float r, float g, float b) {
         if (pose == null) return;
         Vec3 p = pose.pos();
+        box(base, cam, (float) p.x, (float) p.y, (float) p.z, h, r, g, b, 0.22f);
+    }
+
+    /** A translucent axis-aligned cube of half-size {@code h} at a world position. */
+    private static void box(Matrix4f base, Vec3 cam, float px, float py, float pz, float h,
+                            float r, float g, float b, float a) {
         Matrix4f m = new Matrix4f(base).translate(
-                (float) (p.x - cam.x), (float) (p.y - cam.y), (float) (p.z - cam.z));
+                (float) (px - cam.x), (float) (py - cam.y), (float) (pz - cam.z));
 
         RenderSystem.setShader(CoreShaders.POSITION_COLOR);
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        float a = 0.22f;
         float[][][] faces = {
                 {{-h,-h, h},{-h, h, h},{ h, h, h},{ h,-h, h}}, // +Z
                 {{ h,-h,-h},{ h, h,-h},{-h, h,-h},{-h,-h,-h}}, // -Z

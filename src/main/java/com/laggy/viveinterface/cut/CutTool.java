@@ -150,7 +150,13 @@ public final class CutTool {
             boolean stillHeld = heldByMainTrigger ? mainDown : offDown;
             if (!stillHeld) doRelease();
         } else {
-            if (mainDown && !prevMain) tryGrab(true);
+            // Touching the in-world Done button and squeezing exits placement mode — the only exit
+            // that needs no key binding, since VR face buttons never reach Minecraft key bindings.
+            if (placementMode() && (mainDown && !prevMain || offDown && !prevOff) && touchingDone()) {
+                DebugLog.log("PLACE", "Done button pressed");
+                VrPoses.haptic(true, 0.9f);
+                PlacementMode.exit();
+            } else if (mainDown && !prevMain) tryGrab(true);
             else if (offDown && !prevOff) tryGrab(false);
         }
 
@@ -188,6 +194,20 @@ public final class CutTool {
 
     private static VrPoses.BodyPose poseOf(PanelAnchor hand) {
         return hand == PanelAnchor.MAIN_HAND ? VrPoses.mainHand() : VrPoses.offHand();
+    }
+
+    /** Is either hand inside the in-world Done button's box? */
+    private static boolean touchingDone() {
+        Vector3f c = PlacementMode.donePos();
+        if (c == null) return false;
+        float reach = PlacementMode.DONE_HALF + ViveConfig.get().grabRadius;
+        return near(VrPoses.mainHand(), c, reach) || near(VrPoses.offHand(), c, reach);
+    }
+
+    private static boolean near(VrPoses.BodyPose hand, Vector3f c, float reach) {
+        if (hand == null) return false;
+        Vec3 p = hand.pos();
+        return Math.abs(p.x - c.x) <= reach && Math.abs(p.y - c.y) <= reach && Math.abs(p.z - c.z) <= reach;
     }
 
     /** Let go: stick to a nearby body part if you released it there, else leave it in the world. */
