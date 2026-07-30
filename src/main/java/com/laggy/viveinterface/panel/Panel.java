@@ -172,6 +172,11 @@ public final class Panel {
                 r.pos().x - (float) bp.x, r.pos().y - (float) bp.y, r.pos().z - (float) bp.z)));
         relRot.set(new Quaternionf(inv).mul(r.rot()));
         this.anchor = bodyAnchor;
+        this.parentId = null;
+        // Keep it beside the limb rather than buried halfway inside your arm: the piece's centre has
+        // to sit at least a hand's-width plus the configured gap away from the joint.
+        com.laggy.viveinterface.config.ViveConfig cfg = com.laggy.viveinterface.config.ViveConfig.get();
+        SurfaceSnap.clearOfBody(this, cfg.grabRadius + cfg.surfaceClearance);
     }
 
     /** Freeze the current resolved transform into a WORLD anchor (used on "drop"). */

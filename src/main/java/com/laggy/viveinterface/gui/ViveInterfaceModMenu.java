@@ -103,6 +103,17 @@ public class ViveInterfaceModMenu implements ModMenuApi {
                 "Base physical width a full-HUD cut would be; a smaller selection scales down from this. "
                         + "Height follows the selection's aspect ratio.",
                 v -> c.paperWidth = v));
+        geo.addEntry(eb.startBooleanToggle(Component.literal("Snap pieces to block surfaces"), c.snapToBlocks)
+                .setDefaultValue(true)
+                .setTooltip(Component.literal("Release a piece against a wall or floor and it lies flat on "
+                        + "that face instead of sinking into the block."))
+                .setSaveConsumer(v -> c.snapToBlocks = v).build());
+        geo.addEntry(floatField(eb, "Snap range (m)", c.snapRange, 0.05f, 1.5f,
+                "How close a block face has to be for a released piece to snap onto it.",
+                v -> c.snapRange = v));
+        geo.addEntry(floatField(eb, "Surface gap (m)", c.surfaceClearance, 0.001f, 0.3f,
+                "Gap kept between a piece and whatever it rests on — a block face, or your arm.",
+                v -> c.surfaceClearance = v));
         geo.addEntry(floatField(eb, "Grab radius (m)", c.grabRadius, 0.01f, 0.5f,
                 "Size of the off-hand grab sphere (used when repositioning a placed piece).",
                 v -> c.grabRadius = v));

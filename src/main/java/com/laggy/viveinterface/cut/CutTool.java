@@ -8,6 +8,7 @@ import com.laggy.viveinterface.panel.PanelAnchor;
 import com.laggy.viveinterface.panel.PanelHitbox;
 import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
+import com.laggy.viveinterface.panel.SurfaceSnap;
 import com.laggy.viveinterface.vr.VrPoses;
 import com.laggy.viveinterface.vr.VrTriggers;
 import net.minecraft.client.Minecraft;
@@ -242,6 +243,13 @@ public final class CutTool {
         Panel.Resolved r = p.resolve();
         if (r != null && glueIfNearBody(p, r)) {
             PanelStore.save();
+            return;
+        }
+        // Released against a wall/floor? Lay it flat on that face instead of leaving it buried in the
+        // block. Otherwise it just stays exactly where it was let go.
+        if (r != null && SurfaceSnap.snapToBlock(p, r.pos(), r.rot())) {
+            PanelStore.save();
+            VrPoses.haptic(heldHand == PanelAnchor.MAIN_HAND, 0.6f);
             return;
         }
         p.dropToWorld();               // stays exactly where it was released

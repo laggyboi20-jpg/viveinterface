@@ -35,6 +35,13 @@ public final class ViveConfig {
      */
     public int backgroundColor = 0xE0101018;   // near-opaque dark slate
 
+    /** Release a piece against a block and it lies flat on that face instead of sinking into it. */
+    public boolean snapToBlocks = true;
+    /** How far from a piece's centre a block face is still grabbed for snapping (metres). */
+    public float snapRange = 0.35f;
+    /** Gap kept between a piece and whatever it sits on — a block face, or your arm (metres). */
+    public float surfaceClearance = 0.02f;
+
     // Cutting geometry (metres).
     public float bladeLength = 0.42f;
     public float selectStickLength = 0.16f;
@@ -68,6 +75,9 @@ public final class ViveConfig {
                     INSTANCE.swapTriggers = in.swapTriggers;
                     INSTANCE.realModels = in.realModels;
                     INSTANCE.backgroundColor = in.backgroundColor;
+                    INSTANCE.snapToBlocks = in.snapToBlocks;
+                    if (in.snapRange > 0) INSTANCE.snapRange = in.snapRange;
+                    if (in.surfaceClearance > 0) INSTANCE.surfaceClearance = in.surfaceClearance;
                     if (in.bladeLength > 0) INSTANCE.bladeLength = in.bladeLength;
                     if (in.selectStickLength > 0) INSTANCE.selectStickLength = in.selectStickLength;
                     if (in.grabRadius > 0) INSTANCE.grabRadius = in.grabRadius;
