@@ -65,15 +65,12 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         ConfigCategory general = builder.getOrCreateCategory(Component.literal("General"));
 
         general.addEntry(eb.startTextDescription(Component.literal(
-                "§7Press §fN§7 in-game to open the cut screen (Vivecraft shows it as the flat pointer "
-                        + "panel). §fDrag a box§7 over the HUD with the pointer and press §fCut§7 to lift "
-                        + "that region out as a floating panel. §fX / Done / Esc§7 closes it.\n"
-                        + "§7In VR, reach a hand into a piece and squeeze to move it; let go on your other "
-                        + "hand or head to stick it there, or against a wall to lay it flat."))
+                "§eFirst-time setup: §7add ViveInterface's §fOpen cut screen§7 key to Vivecraft's radial "
+                        + "menu — that's how you open the cutting menu in VR. On desktop, just press §fN§7."))
                 .build());
 
         general.addEntry(eb.startAlphaColorField(Component.literal("Piece background"), c.backgroundColor)
-                .setDefaultValue(0xE0101018)
+                .setDefaultValue(0)
                 .setTooltip(Component.literal("Colour drawn behind a cut piece and behind the cut screen, so "
                                 + "translucent parts of the HUD don't show the world through them."),
                         Component.literal("§eSet the alpha to 0 for no background§7 — the piece then stays "

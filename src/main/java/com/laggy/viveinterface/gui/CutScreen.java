@@ -84,9 +84,18 @@ public class CutScreen extends Screen {
                 .bounds(this.width - 22, 2, 20, 20).build());
     }
 
+    /**
+     * No vanilla dirt/blur backdrop. In VR this screen is the flat pointer panel, and anything we don't
+     * draw stays see-through — so leaving the backdrop out lets you keep watching the world while you
+     * cut. The HUD still gets its own optional backing from the "Piece background" setting.
+     */
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // intentionally empty
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g, mouseX, mouseY, partialTick);
         g.drawString(this.font, this.title, imgX, 8, 0xFFFFFF, false);
 
         if (GuiSnapshot.ready() && GuiSnapshot.texId() != 0) {

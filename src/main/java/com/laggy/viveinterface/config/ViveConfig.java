@@ -30,7 +30,7 @@ public final class ViveConfig {
      * parts of the HUD read as a solid sheet instead of showing the world through them.
      * <b>Alpha 0 = no background</b> (fully see-through, the old behaviour).
      */
-    public int backgroundColor = 0xE0101018;   // near-opaque dark slate
+    public int backgroundColor = 0x00000000;   // transparent by default — see through the cut screen
 
     /** Release a piece against a block and it lies flat on that face instead of sinking into it. */
     public boolean snapToBlocks = true;
