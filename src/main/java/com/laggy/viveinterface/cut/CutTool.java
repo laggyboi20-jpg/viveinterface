@@ -160,7 +160,11 @@ public final class CutTool {
         // does something out of the box — but then squeezing to mine near a piece grabs it instead.
         boolean dedicated = ViveKeys.dedicatedGrabKeys();
         boolean mainDown = dedicated ? ViveKeys.rawDown(ViveKeys.grabMainHand) : VrTriggers.cut();
-        boolean offDown = dedicated ? ViveKeys.rawDown(ViveKeys.grabOffHand) : VrTriggers.release();
+        // Fallback deliberately never reads the off-hand trigger: Vivecraft owns it for teleport /
+        // walk-forward and reads it from its own SteamVR action, which we can't consume — so using it
+        // would grab AND teleport. One button is enough anyway: a right-trigger squeeze grabs with
+        // whichever hand is actually in range (see tryGrab).
+        boolean offDown = dedicated && ViveKeys.rawDown(ViveKeys.grabOffHand);
 
         if (held != null) {
             boolean stillHeld = heldByMainTrigger ? mainDown : offDown;
