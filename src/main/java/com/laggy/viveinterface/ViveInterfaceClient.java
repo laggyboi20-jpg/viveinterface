@@ -2,7 +2,6 @@ package com.laggy.viveinterface;
 
 import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
-import com.laggy.viveinterface.cut.PlacementMode;
 import com.laggy.viveinterface.debug.DebugLog;
 import com.laggy.viveinterface.gui.CutScreen;
 import com.laggy.viveinterface.panel.PanelStore;
@@ -36,19 +35,15 @@ public class ViveInterfaceClient implements ClientModInitializer {
         PanelStore.load();   // bring back panels cut in previous sessions
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // N opens the flat cut screen (Vivecraft shows it as the pointer panel), or leaves
-            // placement mode if that's running — so the one key always gets you back out.
+            // N opens the flat cut screen (Vivecraft shows it as the pointer panel). Placing pieces
+            // on your body no longer needs a mode — see CutTool.
             while (ViveKeys.toggleCut.consumeClick()) {
-                if (PlacementMode.active()) PlacementMode.exit();
-                else Minecraft.getInstance().setScreen(new CutScreen());
+                Minecraft.getInstance().setScreen(new CutScreen());
             }
-            // Bind this to a controller face button to leave placement mode without a keyboard.
-            while (ViveKeys.exitPlacement.consumeClick()) PlacementMode.exit();
-            PlacementMode.tick();   // hold the player still while placing
             CutTool.get().tick();
         });
 
-        DebugLog.log("INIT", "ready — N opens the cut screen (drag a box on the HUD to cut), "
-                + "and leaves placement mode. All settings: Mod Menu → ViveInterface.");
+        DebugLog.log("INIT", "ready — N opens the cut screen (drag a box on the HUD to cut). "
+                + "Bind a grab key to a grip to grab pieces. All settings: Mod Menu → ViveInterface.");
     }
 }

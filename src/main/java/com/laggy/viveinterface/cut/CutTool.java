@@ -1,5 +1,6 @@
 package com.laggy.viveinterface.cut;
 
+import com.laggy.viveinterface.ViveKeys;
 import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.debug.DebugLog;
 import com.laggy.viveinterface.panel.Panel;
@@ -154,8 +155,12 @@ public final class CutTool {
             return;
         }
 
-        boolean mainDown = VrTriggers.cut();       // dominant-hand trigger
-        boolean offDown = VrTriggers.release();    // off-hand trigger
+        // Once you've bound a grab key (a grip works well), grabbing uses ONLY those, leaving the
+        // attack trigger free to mine. Without them we fall back to the triggers so the mod still
+        // does something out of the box — but then squeezing to mine near a piece grabs it instead.
+        boolean dedicated = ViveKeys.dedicatedGrabKeys();
+        boolean mainDown = dedicated ? ViveKeys.rawDown(ViveKeys.grabMainHand) : VrTriggers.cut();
+        boolean offDown = dedicated ? ViveKeys.rawDown(ViveKeys.grabOffHand) : VrTriggers.release();
 
         if (held != null) {
             boolean stillHeld = heldByMainTrigger ? mainDown : offDown;
@@ -262,7 +267,29 @@ public final class CutTool {
             VrPoses.haptic(true, 0.9f);
             return true;
         }
+
+        // Not near your body — but maybe touching another piece. Sticking pieces together lets you
+        // build a multi-panel dashboard that then moves as one.
+        Panel host = nearestPanel(p, r);
+        if (host != null) {
+            p.attachToPanel(host);
+            DebugLog.logf("RELEASE", "stuck to piece (anchor now %s)", host.anchor);
+            VrPoses.haptic(true, 0.7f);
+            return true;
+        }
         return false;
+    }
+
+    /** The nearest other piece overlapping {@code p}'s current position that it may attach to. */
+    private static Panel nearestPanel(Panel p, Panel.Resolved r) {
+        Panel best = null;
+        float bestDist = ViveConfig.get().glueRadius;
+        for (Panel other : PanelManager.all()) {
+            if (other == p || p.wouldCycle(other)) continue;   // never build a loop of pieces
+            float d = PanelHitbox.distance(other, r.pos());
+            if (d <= bestDist) { bestDist = d; best = other; }
+        }
+        return best;
     }
 
     private static float dist(Vec3 a, Vector3f b) {

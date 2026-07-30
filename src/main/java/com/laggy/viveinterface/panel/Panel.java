@@ -70,7 +70,46 @@ public final class Panel {
             case MAIN_HAND -> fromBody(VrPoses.mainHand());
             case OFF_HAND -> fromBody(VrPoses.offHand());
             case HEAD -> fromBody(VrPoses.head());
+            case PANEL -> fromParent();
         };
+    }
+
+    /** Ride the parent piece: the same relative transform, applied to wherever the parent resolved to. */
+    private Resolved fromParent() {
+        Panel parent = PanelManager.byId(parentId);
+        if (parent == null || resolving) return null;   // orphaned, or a cycle — draw nothing
+        resolving = true;
+        try {
+            Resolved p = parent.resolve();
+            if (p == null) return null;
+            Quaternionf rot = new Quaternionf(p.rot()).mul(relRot);
+            Vector3f off = new Quaternionf(p.rot()).transform(new Vector3f(relPos));
+            return new Resolved(new Vector3f(p.pos()).add(off), rot);
+        } finally {
+            resolving = false;
+        }
+    }
+
+    /** Would attaching this piece to {@code candidate} create a loop of pieces? */
+    public boolean wouldCycle(Panel candidate) {
+        Panel p = candidate;
+        for (int guard = 0; p != null && guard < 64; guard++) {
+            if (p == this) return true;
+            p = (p.anchor == PanelAnchor.PANEL) ? PanelManager.byId(p.parentId) : null;
+        }
+        return false;
+    }
+
+    /** Stick to another piece, keeping the current position/orientation. */
+    public void attachToPanel(Panel parent) {
+        Resolved r = resolve();
+        Resolved pr = (parent == null) ? null : parent.resolve();
+        if (r == null || pr == null) return;
+        Quaternionf inv = new Quaternionf(pr.rot()).conjugate();
+        relPos.set(inv.transform(new Vector3f(r.pos()).sub(pr.pos())));
+        relRot.set(new Quaternionf(inv).mul(r.rot()));
+        this.parentId = parent.id;
+        this.anchor = PanelAnchor.PANEL;
     }
 
     /**
@@ -80,6 +119,14 @@ public final class Panel {
      */
     public final Vector3f relPos = new Vector3f();
     public final Quaternionf relRot = new Quaternionf();
+
+    /** Stable identity, so a piece stuck to another piece can find its parent again after a reload. */
+    public java.util.UUID id = java.util.UUID.randomUUID();
+    /** Parent piece for {@link PanelAnchor#PANEL}; null otherwise. */
+    public java.util.UUID parentId;
+
+    /** Guards against a cycle of pieces stuck to each other resolving forever. */
+    private boolean resolving;
 
     /** Apply the body-relative transform on top of a live body pose. */
     private Resolved fromBody(VrPoses.BodyPose body) {
@@ -132,6 +179,7 @@ public final class Panel {
         Resolved r = resolve();
         if (r == null) return;
         anchor = PanelAnchor.WORLD;
+        parentId = null;
         worldPos.set(r.pos);
         worldRot.set(r.rot);
         userOffset.set(0, 0, 0);   // 0,0,0 is now "where it was left"

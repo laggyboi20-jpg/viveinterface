@@ -8,6 +8,8 @@ public enum PanelAnchor {
     OFF_HAND,
     /** Follows the head/HMD. */
     HEAD,
+    /** Stuck to another panel — rides whatever that one is attached to (see {@link Panel#parentId}). */
+    PANEL,
     /** Fixed in the world at the transform captured when it was dropped. */
     WORLD
 }

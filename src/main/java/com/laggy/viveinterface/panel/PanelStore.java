@@ -35,6 +35,7 @@ public final class PanelStore {
         float[] relPos;  // body-relative offset (non-WORLD anchors)
         float[] relRot;  // body-relative rotation quaternion x,y,z,w
         float widthMeters, scale;
+        String id, parentId;
     }
 
     public static void save() {
@@ -80,6 +81,8 @@ public final class PanelStore {
         d.place = new float[]{p.place.posX, p.place.posY, p.place.posZ, p.place.yaw, p.place.pitch, p.place.roll};
         d.relPos = new float[]{p.relPos.x, p.relPos.y, p.relPos.z};
         d.relRot = new float[]{p.relRot.x, p.relRot.y, p.relRot.z, p.relRot.w};
+        d.id = p.id.toString();
+        d.parentId = (p.parentId == null) ? null : p.parentId.toString();
         return d;
     }
 
@@ -99,6 +102,12 @@ public final class PanelStore {
         } else {
             p.applyPlacement();   // older file: derive the body-relative transform from `place`
         }
+        // Older files have no ids; the fresh random one from the constructor is fine there.
+        try {
+            if (d.id != null) p.id = java.util.UUID.fromString(d.id);
+            if (d.parentId != null) p.parentId = java.util.UUID.fromString(d.parentId);
+        } catch (IllegalArgumentException ignored) { }
+        if (p.anchor == PanelAnchor.PANEL && p.parentId == null) p.anchor = PanelAnchor.WORLD;
         return p;
     }
 }

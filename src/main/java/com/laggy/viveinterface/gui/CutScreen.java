@@ -2,7 +2,6 @@ package com.laggy.viveinterface.gui;
 
 import com.laggy.viveinterface.config.ViveConfig;
 import com.laggy.viveinterface.cut.CutTool;
-import com.laggy.viveinterface.cut.PlacementMode;
 import com.laggy.viveinterface.panel.Panel;
 import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
@@ -78,8 +77,7 @@ public class CutScreen extends Screen {
                 .bounds(mid - 150, by, 150, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Clear box"), b -> { hasSelection = false; })
                 .bounds(mid + 4, by, 70, 20).build());
-        // Done moves on to placement mode (movement locked) so you can put the pieces on your body.
-        addRenderableWidget(Button.builder(Component.literal("Done →"), b -> toPlacement())
+        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose())
                 .bounds(mid + 78, by, 72, 20).build());
         // Close (X) in the very top-right corner so you can always bail out of cut mode.
         addRenderableWidget(Button.builder(Component.literal("§cX"), b -> onClose())
@@ -228,16 +226,6 @@ public class CutScreen extends Screen {
             return true;
         }
         return super.mouseReleased(mx, my, button);
-    }
-
-    /**
-     * Close the screen and switch into {@link PlacementMode}. It's an in-world state, not another
-     * screen: Vivecraft hands the triggers to the GUI pointer whenever a screen is open, which would
-     * make grabbing impossible.
-     */
-    private void toPlacement() {
-        PlacementMode.enter();
-        if (this.minecraft != null) this.minecraft.setScreen(null);
     }
 
     /** Turn the current selection rectangle into UVs on the HUD and hand it to {@link CutTool}. */

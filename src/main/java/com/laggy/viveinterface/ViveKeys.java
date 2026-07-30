@@ -24,7 +24,9 @@ public final class ViveKeys {
 
     /** Open the cut screen; also leaves placement mode. Default N. */
     public static KeyMapping toggleCut;
-    /** Grab with the OFF hand — bind this to a left-controller button (X / Y / grip). Unbound. */
+    /** Grab with the MAIN hand — bind to a right-controller grip. Unbound. */
+    public static KeyMapping grabMainHand;
+    /** Grab with the OFF hand — bind to a left-controller grip. Unbound. */
     public static KeyMapping grabOffHand;
     /** Leave placement mode without reaching for the keyboard — bind to any face button. Unbound. */
     public static KeyMapping exitPlacement;
@@ -33,8 +35,17 @@ public final class ViveKeys {
 
     public static void register() {
         toggleCut = reg("key.viveinterface.toggle_cut", GLFW.GLFW_KEY_N);
+        grabMainHand = reg("key.viveinterface.grab_main", InputConstants.UNKNOWN.getValue());
         grabOffHand = reg("key.viveinterface.grab_off", InputConstants.UNKNOWN.getValue());
         exitPlacement = reg("key.viveinterface.exit_placement", InputConstants.UNKNOWN.getValue());
+    }
+
+    /**
+     * True once either grab key has been bound. Then the triggers are left alone entirely, so
+     * ATTACK stays free for mining — squeezing to break a block can't be swallowed by a grab.
+     */
+    public static boolean dedicatedGrabKeys() {
+        return isBound(grabMainHand) || isBound(grabOffHand);
     }
 
     private static KeyMapping reg(String id, int key) {
