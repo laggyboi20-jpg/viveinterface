@@ -421,7 +421,29 @@ Rendering became **extract-then-submit**: you describe render state, you don't d
 | `KeyMapping` category `String` | a `Category` type |
 | `WorldRenderEvents` / `WorldRenderContext` | **removed from Fabric API with no replacement** |
 
-### What's left, in order of difficulty
+### Port status
+
+**10 of 11 files compile on 26.2.** Done: `ViveKeys`, `ViveInterfaceClient`, `CutTool`,
+`PlacementMode`, `GuiTexture`, `GuiSnapshot`, `DebugLog`, `HudMask`, `PlacementHud`, `CutScreen`.
+
+**`PanelRenderer` is the only one left, and it is a different kind of job.** Everything else was
+renames plus one API swap; the world renderer has no equivalent to port to:
+
+- Fabric API 26.2 has **no world-render event** (`WorldRenderEvents`/`WorldRenderContext` are gone).
+- **`RenderType` and `MultiBufferSource` no longer exist**, so there is no ready-made way to draw a
+  textured quad in the world.
+- `LevelRenderer.render(...)` now takes `(GraphicsResourceAllocator, DeltaTracker, boolean,
+  CameraRenderState, Matrix4fc, GpuBufferSlice, Vector4f, boolean)`.
+
+So it needs: a mixin into `LevelRenderer` for the hook (the mod already ships mixins), a **custom
+`RenderPipeline`** for the panel quads, and manual `GpuBuffer` vertex data — written against an API
+that has to be learned first and can only really be validated by running it in a headset.
+
+### Also still open
+
+- `HudMask`'s alpha hole-punch is disabled (see above) — needs a pipeline with an alpha-only write mask.
+
+### What was left, in order of difficulty
 
 1. **Easy renames** — the whole 2D side (`CutScreen`, `HudMask`, `PlacementHud`) is mostly the table
    above. `blit(GpuTextureView, …)` is a *simpler* replacement for our custom quad than what we have.
