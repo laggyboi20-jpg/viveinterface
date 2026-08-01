@@ -421,6 +421,21 @@ Rendering became **extract-then-submit**: you describe render state, you don't d
 | `KeyMapping` category `String` | a `Category` type |
 | `WorldRenderEvents` / `WorldRenderContext` | **removed from Fabric API with no replacement** |
 
+### VALIDATED IN-HEADSET ON 26.2 (2026-08-01)
+
+The alpha ran on MC 26.2 + Vivecraft 26.2-1.3.15 + Java 25 + Fabric API 0.156.0+26.2, with Sodium
+0.9.1 and Iris 1.11.2 loaded, on a Quest 3. **Zero ViveInterface errors in the whole session.**
+
+The critical unknown is answered: **`[VI/SNAP] first HUD capture 1280x720`** — the
+`CommandEncoder.copyTextureToTexture` rewrite of `GuiSnapshot` works. Getting the HUD off Vivecraft's
+framebuffer without raw OpenGL was the biggest risk in the port, and it is settled.
+
+Also confirmed working from the same log: the cut screen renders the HUD (three successful
+`VI/CUT screen cut` entries, so `blit(GpuTextureView, GpuSampler, …)` draws correctly), VR hand
+grabbing (`VI/GRAB OFF_HAND`), body sticking (`VI/RELEASE stuck to MAIN_HAND`) and persistence.
+
+So the only thing standing between this branch and a usable 26.2 build is `PanelRenderer`.
+
 ### Port status
 
 **10 of 11 files compile on 26.2.** Done: `ViveKeys`, `ViveInterfaceClient`, `CutTool`,
