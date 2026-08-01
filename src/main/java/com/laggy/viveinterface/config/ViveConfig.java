@@ -21,6 +21,8 @@ public final class ViveConfig {
 
     /** Mirrors {@link DebugLog#ENABLED}; persisted so it survives relogging. */
     public boolean debugLogging = true;
+    /** Verbose diagnostics: per-frame traces plus a mirror of EVERY game log line. Noisy on purpose. */
+    public boolean verboseLogging = false;
 
     /** If your Vivecraft binds the grab/release triggers the other way, flip this. */
     public boolean swapTriggers = false;
@@ -60,6 +62,7 @@ public final class ViveConfig {
                 ViveConfig in = GSON.fromJson(Files.readString(f), ViveConfig.class);
                 if (in != null) {
                     INSTANCE.debugLogging = in.debugLogging;
+                    INSTANCE.verboseLogging = in.verboseLogging;
                     INSTANCE.swapTriggers = in.swapTriggers;
                     INSTANCE.backgroundColor = in.backgroundColor;
                     INSTANCE.snapToBlocks = in.snapToBlocks;
@@ -75,6 +78,7 @@ public final class ViveConfig {
             }
         }
         DebugLog.ENABLED = INSTANCE.debugLogging;
+        DebugLog.VERBOSE = INSTANCE.verboseLogging;
     }
 
     public static void save() {
@@ -91,6 +95,7 @@ public final class ViveConfig {
     public static void toggleDebug() {
         INSTANCE.debugLogging = !INSTANCE.debugLogging;
         DebugLog.ENABLED = INSTANCE.debugLogging;
+        DebugLog.VERBOSE = INSTANCE.verboseLogging;
         save();
         DebugLog.announceState();
     }

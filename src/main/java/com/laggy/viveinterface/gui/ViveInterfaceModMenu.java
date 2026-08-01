@@ -50,7 +50,8 @@ public class ViveInterfaceModMenu implements ModMenuApi {
         final List<Panel> toDelete = new ArrayList<>();
 
         builder.setSavingRunnable(() -> {
-            DebugLog.ENABLED = c.debugLogging;        // apply the live logging flag
+            DebugLog.ENABLED = c.debugLogging;        // apply the live logging flags
+            DebugLog.VERBOSE = c.verboseLogging;
             if (!toDelete.isEmpty()) {
                 for (Panel p : toDelete) PanelManager.remove(p);
                 toDelete.clear();
@@ -88,6 +89,13 @@ public class ViveInterfaceModMenu implements ModMenuApi {
                 .setTooltip(Component.literal("Log cut / grab / release / snapshot / mask events to logs/viveinterface.log "
                         + "and the game log."))
                 .setSaveConsumer(v -> c.debugLogging = v).build());
+
+        general.addEntry(eb.startBooleanToggle(Component.literal("Verbose diagnostics"), c.verboseLogging)
+                .setDefaultValue(false)
+                .setTooltip(Component.literal("Adds per-frame traces AND mirrors every Minecraft/Vivecraft "
+                                + "log line into logs/viveinterface.log."),
+                        Component.literal("§eNoisy — turn on to capture a bug, off for normal play."))
+                .setSaveConsumer(v -> c.verboseLogging = v).build());
 
         // ============================ CUTTING GEOMETRY ============================
         ConfigCategory geo = builder.getOrCreateCategory(Component.literal("Pieces & placement"));
