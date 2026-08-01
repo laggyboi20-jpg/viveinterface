@@ -7,17 +7,13 @@ import com.laggy.viveinterface.panel.PanelManager;
 import com.laggy.viveinterface.panel.PanelStore;
 import com.laggy.viveinterface.render.GuiSnapshot;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.CoreShaders;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,53 +86,53 @@ public class CutScreen extends Screen {
      * cut. The HUD still gets its own optional backing from the "Piece background" setting.
      */
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         // intentionally empty
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.drawString(this.font, this.title, imgX, 8, 0xFFFFFF, false);
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        g.text(this.font, this.title, imgX, 8, 0xFFFFFF, false);
 
-        if (GuiSnapshot.ready() && GuiSnapshot.texId() != 0) {
+        if (GuiSnapshot.ready()) {
             // Backing first, so translucent parts of the HUD read as a sheet rather than showing the
             // world behind. Alpha 0 in the config means "no background" — leave it see-through.
             int bg = ViveConfig.get().backgroundColor;
             if (((bg >>> 24) & 0xFF) != 0) g.fill(imgX, imgY, imgX + imgW, imgY + imgH, bg);
-            drawHudSub(g, GuiSnapshot.texId(), imgX, imgY, imgW, imgH, 0f, 0f, 1f, 1f);
+            drawHudSub(g, GuiSnapshot.view(), imgX, imgY, imgW, imgH, 0f, 0f, 1f, 1f);
         } else {
-            g.drawCenteredString(this.font,
+            g.centeredText(this.font,
                     Component.literal("§eHUD not captured yet — look around in-world once, then reopen."),
                     imgX + imgW / 2, imgY + imgH / 2, 0xFFFF66);
         }
-        g.renderOutline(imgX - 1, imgY - 1, imgW + 2, imgH + 2, 0xFF303040);
+        g.outline(imgX - 1, imgY - 1, imgW + 2, imgH + 2, 0xFF303040);
 
         if (hasSelection) {
             int x0 = (int) Math.min(selX0, selX1), y0 = (int) Math.min(selY0, selY1);
             int x1 = (int) Math.max(selX0, selX1), y1 = (int) Math.max(selY0, selY1);
             g.fill(x0, y0, x1, y1, 0x3033CC55);           // translucent green wash
-            g.renderOutline(x0, y0, x1 - x0, y1 - y0, 0xFF33FF66);
+            g.outline(x0, y0, x1 - x0, y1 - y0, 0xFF33FF66);
         }
 
-        g.drawCenteredString(this.font, status, imgX + imgW / 2, this.height - 40, 0xCCCCCC);
+        g.centeredText(this.font, status, imgX + imgW / 2, this.height - 40, 0xCCCCCC);
         drawPieceStrip(g);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
         drawPieceMenu(g);   // on top of everything
     }
 
     /** The right-hand column: a thumbnail of every placed piece (its cut-out region of the HUD). */
-    private void drawPieceStrip(GuiGraphics g) {
+    private void drawPieceStrip(GuiGraphicsExtractor g) {
         int sx = this.width - STRIP_W + 4;
         int sw = STRIP_W - 10;
         thumbRects.clear();
-        g.drawString(this.font, Component.literal("§fCut pieces"), sx, 8, 0xFFFFFF, false);
+        g.text(this.font, Component.literal("§fCut pieces"), sx, 8, 0xFFFFFF, false);
         List<Panel> all = PanelManager.all();
         if (all.isEmpty()) {
-            g.drawString(this.font, Component.literal("§8(none yet)"), sx, 24, 0x888888, false);
+            g.text(this.font, Component.literal("§8(none yet)"), sx, 24, 0x888888, false);
             return;
         }
         int y = 24;
-        int tex = GuiSnapshot.texId();
+        GpuTextureView tex = GuiSnapshot.view();
         for (int i = 0; i < all.size(); i++) {
             Panel p = all.get(i);
             float du = Math.abs(p.u1 - p.u0), dv = Math.abs(p.v1 - p.v0);
@@ -146,31 +142,31 @@ public class CutScreen extends Screen {
             int tw = sw, th = Math.max(6, (int) (tw / Math.max(0.05f, thumbAspect)));
             if (th > 46) { th = 46; tw = (int) (th * thumbAspect); }
             if (y + th + 12 > this.height - 6) break;   // ran out of room
-            if (GuiSnapshot.ready() && tex != 0) {
+            if (GuiSnapshot.ready() && tex != null) {
                 drawHudSub(g, tex, sx, y, tw, th,
                         Math.min(p.u0, p.u1), Math.min(p.v0, p.v1), Math.max(p.u0, p.u1), Math.max(p.v0, p.v1));
             }
             boolean sel = (menuFor == i);
-            g.renderOutline(sx - 1, y - 1, tw + 2, th + 2, sel ? 0xFF33FF66 : 0xFF404050);
-            g.drawString(this.font, Component.literal("§7#" + (i + 1)), sx, y + th + 1, 0xAAAAAA, false);
+            g.outline(sx - 1, y - 1, tw + 2, th + 2, sel ? 0xFF33FF66 : 0xFF404050);
+            g.text(this.font, Component.literal("§7#" + (i + 1)), sx, y + th + 1, 0xAAAAAA, false);
             thumbRects.add(new int[]{sx, y, tw, th, i});
             y += th + 12;
         }
-        g.drawString(this.font, Component.literal("§8click a piece"), sx, Math.min(y, this.height - 12),
+        g.text(this.font, Component.literal("§8click a piece"), sx, Math.min(y, this.height - 12),
                 0x777777, false);
     }
 
     /** The tiny per-piece options popup (currently just Delete). */
-    private void drawPieceMenu(GuiGraphics g) {
+    private void drawPieceMenu(GuiGraphicsExtractor g) {
         if (menuFor < 0) return;
         int x = menuX, y = menuY;
         g.fill(x, y, x + MENU_W, y + MENU_H, 0xF0101018);
-        g.renderOutline(x, y, MENU_W, MENU_H, 0xFF55FF88);
-        g.drawString(this.font, Component.literal("§fPiece #" + (menuFor + 1)), x + 5, y + 4, 0xFFFFFF, false);
+        g.outline(x, y, MENU_W, MENU_H, 0xFF55FF88);
+        g.text(this.font, Component.literal("§fPiece #" + (menuFor + 1)), x + 5, y + 4, 0xFFFFFF, false);
         int[] del = deleteRect();
         g.fill(del[0], del[1], del[0] + del[2], del[1] + del[3], 0xFF802020);
-        g.renderOutline(del[0], del[1], del[2], del[3], 0xFFFF6666);
-        g.drawCenteredString(this.font, Component.literal("§fDelete"),
+        g.outline(del[0], del[1], del[2], del[3], 0xFFFF6666);
+        g.centeredText(this.font, Component.literal("§fDelete"),
                 del[0] + del[2] / 2, del[1] + 4, 0xFFFFFF);
     }
 
@@ -179,7 +175,9 @@ public class CutScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y();
+        int button = event.button();
         // The per-piece popup takes priority while it's open.
         if (menuFor >= 0) {
             int[] d = deleteRect();
@@ -215,26 +213,30 @@ public class CutScreen extends Screen {
             selY0 = selY1 = clampY(my);
             return true;
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        double mx = event.x(), my = event.y();
+        int button = event.button();
         if (dragging && button == 0) {
             selX1 = clampX(mx);
             selY1 = clampY(my);
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(event, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        double mx = event.x(), my = event.y();
+        int button = event.button();
         if (dragging && button == 0) {
             dragging = false;
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(event);
     }
 
     /** Turn the current selection rectangle into UVs on the HUD and hand it to {@link CutTool}. */
@@ -254,24 +256,17 @@ public class CutScreen extends Screen {
         hasSelection = false;
     }
 
-    // Draw a sub-region (u0..u1, v0..v1, top-left origin) of our raw HUD-snapshot GL texture into a
-    // screen rect. V is flipped because framebuffers are bottom-left origin. GuiGraphics.blit only
-    // takes a ResourceLocation, so we draw it by hand.
-    private static void drawHudSub(GuiGraphics g, int texId, int x, int y, int w, int h,
+    /**
+     * Draw a sub-region (u0..u1, v0..v1, top-left origin) of the HUD snapshot into a screen rect.
+     *
+     * <p>On 1.21.4 this was a hand-rolled POSITION_TEX quad; 26.2 offers a blit that takes a
+     * GpuTextureView directly, which is exactly what {@link GuiSnapshot} hands out. V is flipped
+     * because framebuffer textures are bottom-left origin.
+     */
+    private static void drawHudSub(GuiGraphicsExtractor g, GpuTextureView tex, int x, int y, int w, int h,
                                    float u0, float v0, float u1, float v1) {
-        float tv0 = 1f - v0, tv1 = 1f - v1;
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(CoreShaders.POSITION_TEX);
-        RenderSystem.setShaderTexture(0, texId);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        Matrix4f m = g.pose().last().pose();
-        Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        bb.addVertex(m, x,     y,     0).setUv(u0, tv0);   // top-left
-        bb.addVertex(m, x,     y + h, 0).setUv(u0, tv1);   // bottom-left
-        bb.addVertex(m, x + w, y + h, 0).setUv(u1, tv1);   // bottom-right
-        bb.addVertex(m, x + w, y,     0).setUv(u1, tv0);   // top-right
-        BufferUploader.drawWithShader(bb.buildOrThrow());
+        g.blit(tex, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR),
+                x, y, w, h, u0, u1, 1f - v0, 1f - v1);
     }
 
     private boolean inImage(double mx, double my) {
