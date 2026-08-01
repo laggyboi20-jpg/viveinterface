@@ -1,7 +1,7 @@
 plugins {
-    // -remap variant: 1.21.4 is still obfuscated, so Loom remaps Minecraft.
-    // (Same plugin the sibling ViveMonkeCraft 1.21.4 project builds with.)
-    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+    // Plain loom (not the -remap variant the 1.21.4 branch uses): 26.x ships unobfuscated, so there
+    // is nothing to remap Minecraft from.
+    id 'fabric-loom' version "${loom_version}"
     id 'java'
 }
 
@@ -17,9 +17,9 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    // Use official Mojang mappings so Vivecraft's RenderTarget / Vec3 / PoseStack
-    // names line up with what we call.
-    mappings loom.officialMojangMappings()
+    // 26.x ships unobfuscated, so Fabric publishes a placeholder identity intermediary (0.0.0)
+    // rather than real mappings — fabric-meta reports it for every 26.x version.
+    mappings "net.fabricmc:intermediary:0.0.0:v2"
 
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
@@ -31,12 +31,11 @@ dependencies {
     }
     modCompileOnly("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
         exclude(group: "net.fabricmc.fabric-api")
-        exclude(group: "net.fabricmc", module: "fabric-loader")   // we already provide the loader
+        exclude(group: "net.fabricmc", module: "fabric-loader")
     }
 
-    // Vivecraft: compile against the production jar. Loom remaps it (intermediary
-    // -> mojmap) for the dev classpath. It's compileOnly because at runtime the
-    // user launches with the real Vivecraft mod present.
+    // Vivecraft: compile against the production jar. It's compileOnly because at runtime the user
+    // launches with the real Vivecraft mod present.
     def vc = file(project.vivecraft_jar)
     if (vc.exists()) {
         modCompileOnly files(vc)
@@ -53,11 +52,12 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.encoding = "UTF-8"
+    it.options.release = 25
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
     withSourcesJar()
 }

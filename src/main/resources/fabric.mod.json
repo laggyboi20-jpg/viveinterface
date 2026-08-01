@@ -3,21 +3,27 @@
   "id": "viveinterface",
   "version": "${version}",
   "name": "ViveInterface",
-  "description": "Cut regions out of the flat VR HUD (maps, minimaps, mod overlays) and place them as floating panels anywhere in VR — on your arm, your body, or in the world.",
-  "authors": ["Laggy"],
+  "description": "Cut regions out of the flat VR HUD (maps, minimaps, mod overlays) and place them as floating panels anywhere in VR \u2014 on your arm, your body, or in the world.",
+  "authors": [
+    "Laggy"
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.laggy.viveinterface.ViveInterfaceClient"],
-    "modmenu": ["com.laggy.viveinterface.gui.ViveInterfaceModMenu"]
+    "client": [
+      "com.laggy.viveinterface.ViveInterfaceClient"
+    ],
+    "modmenu": [
+      "com.laggy.viveinterface.gui.ViveInterfaceModMenu"
+    ]
   },
   "mixins": [
     "viveinterface.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.16.0",
-    "minecraft": "~1.21.4",
-    "java": ">=21",
+    "fabricloader": ">=0.16.1",
+    "minecraft": "~26.2",
+    "java": ">=25",
     "fabric-api": "*"
   },
   "suggests": {
