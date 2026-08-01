@@ -370,3 +370,69 @@ cut and is only resized/deleted from the menu.
 
 **Builds clean** against `vivecraft-1.21.4-1.3.15` (Gradle 9.5 offline, JDK 21). Screen-based flow not
 yet confirmed in-headset.
+
+---
+
+## 12. Minecraft 26.2 port — findings (branch `mc/26.2`)
+
+Branch layout: `main` and `mc/1.21.4` hold the shipped 1.21.4 beta; `mc/26.2` is the port.
+
+### Build setup (DONE — Loom compiles MC 26.2 under Java 25)
+
+26.x ships **unobfuscated**, which changes everything about the Loom config versus 1.21.4:
+
+| | 1.21.4 branch | 26.2 branch |
+|---|---|---|
+| plugin | `net.fabricmc.fabric-loom-remap` | `net.fabricmc.fabric-loom` |
+| mappings | `loom.officialMojangMappings()` | **none — omit the line entirely** |
+| deps | `modImplementation` / `modCompileOnly` | `implementation` / `compileOnly` |
+| Java | 21 | **25** |
+
+There are no Mojang mappings, no yarn and no real intermediary for 26.2 (only a placeholder
+identity `0.0.0`). Declaring any mappings drags in Loom's source remapper, which dies with
+`Could not find namespace "named" in provided tiny tree`. Verified against real 26.2 mods
+(TechReborn, No-Chat-Reports). Versions: Loom 1.17.17, Gradle 9.5.1, Fabric API 0.156.0+26.2,
+Mod Menu 20.0.1, Cloth Config 26.2.155.
+
+A JDK 25 is required to compile; this machine's system Java 25 is JRE-only, so Temurin 25 lives at
+`~/.local/jdks/jdk-25.0.4+7` (`JAVA_HOME=... ./gradlew build`).
+
+### API mapping (all verified against the real 26.2 jar)
+
+Rendering became **extract-then-submit**: you describe render state, you don't draw immediately.
+
+| 1.21.4 | 26.2 |
+|---|---|
+| `GuiGraphics` | `GuiGraphicsExtractor` |
+| `Screen.render(g,…)` | `Screen.extractRenderState(GuiGraphicsExtractor, int, int, float)` |
+| `Screen.renderBackground(…)` | `Screen.extractBackground(…)` |
+| `g.renderOutline(…)` | `g.outline(…)` |
+| `g.drawString(…)` | `g.text(…)` |
+| `g.drawCenteredString(…)` | `g.centeredText(…)` |
+| `g.fill(…)` | `g.fill(…)` *(unchanged)* |
+| hand-rolled POSITION_TEX quad | **`g.blit(GpuTextureView, GpuSampler, x, y, w, h, u0, u1, v0, v1)`** |
+| `Tesselator` / `BufferUploader` / `CoreShaders` | gone → `RenderPipeline` (`RenderPipelines.GUI_TEXTURED`, …) |
+| `GlStateManager`, `RenderSystem.enableBlend/colorMask/setShaderColor/…` | gone — state lives in the pipeline |
+| `RenderTarget.frameBufferId` / `getColorTextureId()` | gone → **`getColorTextureView()`** / `getColorTexture()` |
+| `ResourceLocation` | `Identifier` |
+| `Minecraft.setScreen(…)` | `setScreenAndShow(…)` |
+| `HudRenderCallback` | `HudElementRegistry` + `HudElement.extractRenderState(…)` |
+| `KeyBindingHelper` (`keybinding-api-v1`) | `KeyMappingHelper` (`key-mapping-api-v1`) |
+| `KeyMapping` category `String` | a `Category` type |
+| `WorldRenderEvents` / `WorldRenderContext` | **removed from Fabric API with no replacement** |
+
+### What's left, in order of difficulty
+
+1. **Easy renames** — the whole 2D side (`CutScreen`, `HudMask`, `PlacementHud`) is mostly the table
+   above. `blit(GpuTextureView, …)` is a *simpler* replacement for our custom quad than what we have.
+2. **`GuiSnapshot`** — the raw-GL framebuffer copy must become a `CommandEncoder` texture copy. Note
+   `GUI_FRAMEBUFFER.getColorTextureView()` is already the exact type `blit` wants, so the flat screen
+   may not need a private copy at all — only the world panels do (they need the pre-mask snapshot).
+3. **`PanelRenderer` (hardest)** — Fabric API 26.2 has **no world-render event**. Options: a mixin
+   into `LevelRenderer` (the mod already ships mixins, so the infrastructure exists), or the new
+   submit-node API (`SubmitRenderPhases` / `FabricOrderedSubmitNodeCollector`).
+4. **`HudMask`** — the alpha hole-punch used `RenderSystem.colorMask`, which is gone. Colour masking
+   is now baked into a `RenderPipeline`, so this needs a custom pipeline (or a different masking idea).
+
+**Vivecraft is a non-issue**: `VRClientAPI`, `VRBodyPart`, `VRPose` and
+`GuiHandler.GUI_FRAMEBUFFER` (still a `public static RenderTarget`) are all unchanged in 26.2.
