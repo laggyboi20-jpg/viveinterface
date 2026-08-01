@@ -31,6 +31,8 @@ public final class GuiSnapshot {
     private GuiSnapshot() {}
 
     public static boolean ready() { return view != null; }
+    /** The raw texture, for wrapping into a registered {@link SnapshotTexture}. */
+    public static GpuTexture texture() { return texture; }
     /** The snapshot as something {@code GuiGraphicsExtractor.blit} and our render pipeline can sample. */
     public static GpuTextureView view() { return view; }
     public static int width() { return w; }

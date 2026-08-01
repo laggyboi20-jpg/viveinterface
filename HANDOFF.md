@@ -441,18 +441,29 @@ So the only thing standing between this branch and a usable 26.2 build is `Panel
 **10 of 11 files compile on 26.2.** Done: `ViveKeys`, `ViveInterfaceClient`, `CutTool`,
 `PlacementMode`, `GuiTexture`, `GuiSnapshot`, `DebugLog`, `HudMask`, `PlacementHud`, `CutScreen`.
 
-**`PanelRenderer` is the only one left, and it is a different kind of job.** Everything else was
-renames plus one API swap; the world renderer has no equivalent to port to:
+**All 11 files now compile, `PanelRenderer` included.**
 
-- Fabric API 26.2 has **no world-render event** (`WorldRenderEvents`/`WorldRenderContext` are gone).
-- **`RenderType` and `MultiBufferSource` no longer exist**, so there is no ready-made way to draw a
-  textured quad in the world.
-- `LevelRenderer.render(...)` now takes `(GraphicsResourceAllocator, DeltaTracker, boolean,
-  CameraRenderState, Matrix4fc, GpuBufferSlice, Vector4f, boolean)`.
+Two earlier conclusions here were WRONG and cost time — recorded so nobody repeats them:
 
-So it needs: a mixin into `LevelRenderer` for the hook (the mod already ships mixins), a **custom
-`RenderPipeline`** for the panel quads, and manual `GpuBuffer` vertex data — written against an API
-that has to be learned first and can only really be validated by running it in a headset.
+- *"Fabric has no world-render event"* — it does; it moved to the **`level/` subpackage**:
+  `net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents`. Searching for `WorldRender*`
+  by name finds nothing.
+- *"`RenderType` no longer exists"* — it does; it moved to
+  **`net.minecraft.client.renderer.rendertype.RenderType`**. Only `MultiBufferSource` is really gone.
+
+**No mixin and no custom `RenderPipeline` were needed.** The working shape is:
+
+1. Hook `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`, which supplies a `LevelRenderContext` with a
+   `SubmitNodeCollector` and a `PoseStack`.
+2. Draw with `submitCustomGeometry(PoseStack, RenderType, CustomGeometryRenderer)` — the renderer
+   callback hands back a plain `VertexConsumer`, so the per-vertex code is nearly the 1.21.4 code.
+3. Stock `RenderTypes.entityTranslucent(Identifier)` wants a *registered* texture, so
+   **`SnapshotTexture`** publishes the snapshot's `GpuTexture` to the `TextureManager` under
+   `viveinterface:hud_snapshot` (subclassing `AbstractTexture`, whose `texture`/`textureView`/
+   `sampler` fields are protected and settable). That sidesteps writing a pipeline entirely.
+
+Other 26.2 gotchas hit here: `LightTexture` is gone (use the packed constant `0xF000F0`),
+`GameRenderer.getMainCamera()` → `mainCamera()`, and `Camera.getPosition()` → `position()`.
 
 ### Also still open
 
