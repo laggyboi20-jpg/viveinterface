@@ -34,6 +34,10 @@ dependencies {
         exclude(group: "net.fabricmc", module: "fabric-loader")   // we already provide the loader
     }
 
+    // log4j-core: needed to attach GameLogTap's appender to the game's root logger. Minecraft
+    // already ships it at runtime, so this is compile-only.
+    compileOnly "org.apache.logging.log4j:log4j-core:2.24.1"
+
     // Vivecraft: compile against the production jar. Loom remaps it (intermediary
     // -> mojmap) for the dev classpath. It's compileOnly because at runtime the
     // user launches with the real Vivecraft mod present.

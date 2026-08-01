@@ -33,6 +33,8 @@ public final class DebugLog {
 
     private static final Logger LOG = LoggerFactory.getLogger("ViveInterface");
     public static boolean ENABLED = true;
+    /** Verbose mode: per-frame traces from us, and mirror EVERY game log record, not just the useful ones. */
+    public static boolean VERBOSE = false;
 
     private static final Map<String, Long> THROTTLE = new HashMap<>();
     private static final java.util.Set<String> ONCE = new java.util.HashSet<>();
@@ -81,6 +83,39 @@ public final class DebugLog {
     /** Log once ever per key (e.g. first successful HUD capture). */
     public static void once(String key, String tag, String msg) {
         if (ENABLED && ONCE.add(key)) emit("[VI/" + tag + "] " + msg);
+    }
+
+    /** Fine-grained trace — only written in verbose mode, so per-frame calls are safe. */
+    public static void trace(String tag, String fmt, Object... args) {
+        if (ENABLED && VERBOSE) emit("[VI/" + tag + "] " + String.format(fmt, args));
+    }
+
+    /** Write a pre-formatted line straight to the file — used by {@link GameLogTap}. */
+    public static void raw(String line) {
+        if (ENABLED) toFile(line);
+    }
+
+    /**
+     * One-time header describing the environment, so a shared log answers "what were you running?"
+     * without a follow-up question.
+     */
+    public static void logEnvironment() {
+        try {
+            FabricLoader loader = FabricLoader.getInstance();
+            emit("[VI/ENV] ---- environment ----");
+            for (String id : new String[]{"minecraft", "fabricloader", "fabric-api", "viveinterface",
+                                          "vivecraft", "modmenu", "cloth-config", "sodium", "iris"}) {
+                loader.getModContainer(id).ifPresentOrElse(
+                        m -> emit("[VI/ENV]   " + id + " = " + m.getMetadata().getVersion().getFriendlyString()),
+                        () -> emit("[VI/ENV]   " + id + " = (absent)"));
+            }
+            emit("[VI/ENV]   java = " + System.getProperty("java.version")
+                    + "  os = " + System.getProperty("os.name"));
+            emit("[VI/ENV]   mods loaded = " + loader.getAllMods().size());
+            emit("[VI/ENV] ---------------------");
+        } catch (Throwable t) {
+            error("ENV", "could not describe the environment", t);
+        }
     }
 
     public static String v(Vec3 p) {
