@@ -154,9 +154,10 @@ public final class CutTool {
 
     public void tick() {
         if (!VrPoses.vrActive()) return;
-        // Any open screen owns the triggers for its pointer, so stay out of the way. Placement mode is
-        // deliberately screen-less precisely so grabbing keeps working there.
-        if (Minecraft.getInstance().screen != null) {
+        // Any open screen owns the triggers for its pointer, so stay out of the way. 26.2 exposes no
+        // current-screen accessor on Minecraft, but the mouse is only grabbed when no screen is up,
+        // which is the same signal.
+        if (!Minecraft.getInstance().mouseHandler.isMouseGrabbed()) {
             prevMain = prevOff = false;
             return;
         }

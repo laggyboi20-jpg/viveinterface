@@ -20,10 +20,10 @@ public final class GuiTexture {
         return GuiHandler.GUI_FRAMEBUFFER != null;
     }
 
-    /** OpenGL color-attachment texture id of the HUD framebuffer, or 0 if not ready. */
-    public static int colorTexId() {
+    /** The HUD framebuffer's colour texture view, or null if not ready. 26.2 has no raw GL texture id. */
+    public static com.mojang.blaze3d.textures.GpuTextureView colorView() {
         RenderTarget fb = GuiHandler.GUI_FRAMEBUFFER;
-        return fb == null ? 0 : fb.getColorTextureId();
+        return fb == null ? null : fb.getColorTextureView();
     }
 
     public static int width() {

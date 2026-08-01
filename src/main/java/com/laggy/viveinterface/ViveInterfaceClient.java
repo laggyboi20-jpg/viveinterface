@@ -38,7 +38,7 @@ public class ViveInterfaceClient implements ClientModInitializer {
             // N opens the flat cut screen (Vivecraft shows it as the pointer panel). Placing pieces
             // on your body no longer needs a mode — see CutTool.
             while (ViveKeys.toggleCut.consumeClick()) {
-                Minecraft.getInstance().setScreen(new CutScreen());
+                Minecraft.getInstance().setScreenAndShow(new CutScreen());
             }
             CutTool.get().tick();
         });

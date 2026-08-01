@@ -90,8 +90,7 @@ public final class PlacementMode {
             exit();          // left the world while in placement mode
             return;
         }
-        player.input.forwardImpulse = 0f;
-        player.input.leftImpulse = 0f;
-        player.input.keyPresses = new Input(false, false, false, false, false, false, false);
+        // 26.2 dropped the impulse fields; zeroing the key presses is what drives movement now.
+        player.input.keyPresses = Input.EMPTY;
     }
 }

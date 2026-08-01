@@ -93,7 +93,8 @@ public final class DebugLog {
         emit("[VI/DUMP] ----- state snapshot -----");
         emit(String.format("[VI/DUMP] vrActive=%s guiFb avail=%s size=%dx%d",
                 vr, GuiTexture.available(), GuiTexture.width(), GuiTexture.height()));
-        emit(String.format("[VI/DUMP] snapshot ready=%s texId=%d", GuiSnapshot.ready(), GuiSnapshot.texId()));
+        emit(String.format("[VI/DUMP] snapshot ready=%s size=%dx%d",
+                GuiSnapshot.ready(), GuiSnapshot.width(), GuiSnapshot.height()));
         CutTool cut = CutTool.get();
         emit(String.format("[VI/DUMP] grabState=%s panels=%d",
                 cut.state(), PanelManager.all().size()));

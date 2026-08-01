@@ -2,7 +2,8 @@ package com.laggy.viveinterface;
 
 import com.laggy.viveinterface.mixin.KeyMappingAccessor;
 import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.resources.Identifier;
 import net.minecraft.client.KeyMapping;
 import org.lwjgl.glfw.GLFW;
 
@@ -20,7 +21,9 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class ViveKeys {
 
-    private static final String CATEGORY = "category.viveinterface";
+    /** 26.2 takes a Category record rather than a translation-key String. */
+    private static final KeyMapping.Category CATEGORY =
+            KeyMapping.Category.register(Identifier.fromNamespaceAndPath("viveinterface", "main"));
 
     /** Open the cut screen; also leaves placement mode. Default N. */
     public static KeyMapping toggleCut;
@@ -46,7 +49,7 @@ public final class ViveKeys {
     }
 
     private static KeyMapping reg(String id, int key) {
-        return KeyBindingHelper.registerKeyBinding(
+        return KeyMappingHelper.registerKeyMapping(
                 new KeyMapping(id, InputConstants.Type.KEYSYM, key, CATEGORY));
     }
 
